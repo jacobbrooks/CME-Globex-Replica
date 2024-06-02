@@ -1,65 +1,69 @@
-import java.util.concurrent.PriorityBlockingQueue;
+import java.util.PriorityQueue;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
 
 public class OrderBook {
 
-   private final Security security;
-   private final PriorityBlockingQueue<PriceLevel> bids;
-   private final PriorityBlockingQueue<PriceLevel> asks;
-   private final Map<String, PriceLevel> priceLevelMap;
+   private final TreeMap<Long, PriceLevel> bids;
+   private final TreeMap<Long, PriceLevel> asks;
+	private final Map<Integer, PriceLevel> priceLevelByClientOrderId;
    
-   public OrderBook(Security security) {
-      this.security = security;
-      final Comparator<PriceLevel> askComparator = Comparator.comparing(PriceLevel::getPrice);
-      bids = new PriorityBlockingQueue<>(1, askComparator.reversed());
-      asks = new PriorityBlockingQueue<>(1, askComparator);
-      priceLevelMap = new HashMap<>();
+   public OrderBook() {
+      bids = new TreeMap<Long, PriceLevel>(Collections.reverseOrder());
+      asks = new TreeMap<Long, PriceLevel>();
+      priceLevelByClientOrderId = new HashMap<Integer, PriceLevel>();
    }
 
-   public synchronized OrderResponse request(Order order, boolean print) throws InterruptedException {
-      final PriorityBlockingQueue<PriceLevel> matchAgainst = order.isBuy() ? asks : bids;
-      final int matchFlag = order.isBuy() ? 1 : -1;
+   public OrderResponse addOrder(Order order, boolean print) {
+		final OrderResponse response = new OrderResponse();
+      final TreeMap<Long, PriceLevel> matchAgainst = order.isBuy() ? asks : bids;
+      final TreeMap<Long, PriceLevel> resting = order.isBuy() ? bids : asks;
 
-      while(!order.isFilled()) {
-         final PriceLevel best = matchAgainst.peek();
-         if(best == null) {
-            break;
-         }
-         final int comparison = order.getPrice().compareTo(best.getPrice());
-         final boolean isMatch = comparison == 0 || comparison == matchFlag;
+		Optional<PriceLevel> best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
+      while(best.isPresent() && !order.isFilled()) {
+         final boolean isMatch = order.isBuy() ? best.get().getPrice() <= order.getPrice() : best.get().getPrice() >= order.getPrice();
          if(!isMatch) {
             break;
          } 
-         best.matchAgainst(order);
-         if(best.getTotalQuantity() == 0) {
-            matchAgainst.poll();
+         final List<MatchEvent> matches = best.get().match(order);
+			response.addMatches(best.get().getPrice(), matches);
+         if(best.get().getTotalQuantity() == 0) {
+            matchAgainst.pollFirstEntry();
          } 
+			best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
+			if(print) {
+				matches.forEach(System.out::println);
+			}
       }
       
       if(order.isFilled()) {
-         return new OrderResponse();
+         return response;
       }
      
-      final PriorityBlockingQueue<PriceLevel> resting = order.isBuy() ? bids : asks;
-      if(priceLevelMap.containsKey(order.isBuy() + order.getPrice().toString())) {
-         PriceLevel existing = priceLevelMap.get(order.getPrice().toString());
-         existing.matchAlong(order);
-      } else {
-         final PriceLevel newPriceLevel = new PriceLevel(order);
-         resting.put(newPriceLevel);
-         priceLevelMap.put(order.isBuy() + order.getPrice().toString(), newPriceLevel);
-      }
-      return new OrderResponse();
+		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order));
+		if(!addTo.hasOrder(order.getClientOrderId())) {
+			addTo.add(order);
+		}
+		priceLevelByClientOrderId.put(order.getClientOrderId(), addTo);
+
+      return response;
    }
 
+	public Order getOrder(int clientOrderId) {
+		return priceLevelByClientOrderId.get(clientOrderId).getOrder(clientOrderId);
+	}
+
    public void printBook() {
-      System.out.println("============ Bids " + bids.size() + " ==============");
-      Arrays.stream(this.bids.toArray()).map(b -> b.toString()).forEach(System.out::println);
-      System.out.println("============ Asks " + asks.size() + " ==============");
-      Arrays.stream(this.asks.toArray()).map(a -> a.toString()).forEach(System.out::println);
+      System.out.println("============ Bids " + bids.keySet().size() + " ==============");
+      bids.entrySet().stream().map(b -> b.getValue().toString()).forEach(System.out::println);
+      System.out.println("============ Asks " + asks.keySet().size() + " ==============");
+      asks.entrySet().stream().map(a -> a.getValue().toString()).forEach(System.out::println);
    }
    
 }

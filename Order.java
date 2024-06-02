@@ -1,47 +1,52 @@
-import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Order {
 
    private static final AtomicInteger NEXT_ORDER_ID = new AtomicInteger(0);
-   
-   private final long timeStamp;
+  
+	private final int clientOrderId;
+	private final int securityId; 
+   private final long timestamp;
    private final int orderId;
 
-   private final String clientId; 
    private final boolean buy;
-   private BigDecimal price;
-   private int quantity;
+   private long price;
+   private int initialQuantity;
    
    private int filledQuantity;
 
-   public Order(String clientId, boolean buy, BigDecimal price, int quantity) {
-      this.timeStamp = System.currentTimeMillis();
+   public Order(int clientOrderId, int securityId, boolean buy, long price, int initialQuantity) {
+		this.clientOrderId = clientOrderId;
+      this.timestamp = System.currentTimeMillis();
+		this.securityId = securityId;
       this.buy = buy;
-      this.clientId = clientId;
       this.price = price;
-      this.quantity = quantity;
+      this.initialQuantity = initialQuantity;
       this.orderId = NEXT_ORDER_ID.incrementAndGet();
    }
 
-   public long getTimeStamp() {
-      return timeStamp;
+	public int getClientOrderId() {
+		return clientOrderId;
+	}
+
+   public long getTimestamp() {
+      return timestamp;
    }
 
    public int getOrderId() {
       return orderId;
    }
+	
+	public int getSecurityId() {
+		return securityId;
+	}
 
-   public String getClientId() {
-      return clientId;
-   }
-
-   public BigDecimal getPrice() {
+   public long getPrice() {
       return price;
    }
 
-   public int getQuantity() {
-      return quantity;
+   public int getInitialQuantity() {
+      return initialQuantity;
    }
 
    public boolean isBuy() {
@@ -53,11 +58,11 @@ public class Order {
    }
 
    public int getRemainingQuantity() {
-      return quantity - filledQuantity;
+      return initialQuantity - filledQuantity;
    }
 
-   public void fill(int quantity) {
-      filledQuantity += quantity;
+   public void fill(int initialQuantity) {
+      filledQuantity += initialQuantity;
    }
 
    public boolean isFilled() {
@@ -65,7 +70,7 @@ public class Order {
    }
 
    public String toString() {
-      return "$" + price.toString() + " - " + getRemainingQuantity() + " @" + timeStamp + "ms"; 
+      return "$" + price + " - " + getRemainingQuantity() + " @" + timestamp + "ms"; 
    }
 
 }

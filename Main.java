@@ -1,28 +1,22 @@
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
    public static void main(String[] args) throws InterruptedException {
-      OrderBook book = new OrderBook(new Security("Apple $180 call"));
-      String[] prices = {"1", "1.50", "2", "2.50", "3"};
+
+		final OrderGateway gateway = new OrderGateway();
+		gateway.start();
+
+      final List<Long> prices = List.of(100L, 150L, 200L, 250L, 300L);
+		final AtomicInteger idGenerator = new AtomicInteger(-1);
       
       Runnable bidTask = () -> {
-         for(String s : prices) {
-            try {
-               OrderResponse response = book.request(new Order("myHedgeFund123", true, new BigDecimal(s), 10), false);
-            } catch(InterruptedException e) {
-               e.printStackTrace();
-            }
-         }
+      	prices.forEach(p -> gateway.submit(new Order(idGenerator.incrementAndGet(), 1, true, p, 10)));
       };
 
       Runnable askTask = () -> {
-         for(String s : prices) {
-            try {
-               OrderResponse response = book.request(new Order("myHedgeFund123", false, new BigDecimal(s), 5), true);
-            } catch(InterruptedException e) {
-               e.printStackTrace();
-            }
-         }
+      	prices.forEach(p -> gateway.submit(new Order(idGenerator.incrementAndGet(), 1, false, p, 10)));
       };
 
       Thread bidThread = new Thread(bidTask);
@@ -33,7 +27,9 @@ public class Main {
 
       bidThread.join();
       askThread.join();
-      
-      book.printBook();
+    
+		try {Thread.sleep(1000);} catch(InterruptedException e) {}
+ 
+      gateway.printBook(1);
    }
 }
