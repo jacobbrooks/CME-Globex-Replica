@@ -13,7 +13,7 @@ public class PriceLevel {
 
    public PriceLevel(Order order) {
       this.orders = new TreeMap<PriceLevelKey, Order>();
-      this.orders.put(new PriceLevelKey(order.getClientOrderId(), order.getTimestamp()), order);
+      this.orders.put(new PriceLevelKey(order.getOrderId(), order.getTimestamp()), order);
       this.price = order.getPrice();
       this.totalQuantity = order.getInitialQuantity();
    }
@@ -29,21 +29,21 @@ public class PriceLevel {
          if(match.isFilled()) {
             orders.pollFirstEntry();
          }
-			matches.add(new MatchEvent(order.getClientOrderId(), match.getClientOrderId(), price, fillQuantity, order.isBuy()));
+			matches.add(new MatchEvent(order.getOrderId(), match.getOrderId(), price, fillQuantity, order.isBuy()));
       }
 		return matches;
    }
 
-	public Order getOrder(int clientOrderId) {
-		return orders.get(new PriceLevelKey(clientOrderId, 0));
+	public Order getOrder(int orderId) {
+		return orders.get(new PriceLevelKey(orderId));
 	}
 
-	public boolean hasOrder(int clientOrderId) {
-		return getOrder(clientOrderId) != null;
+	public boolean hasOrder(int orderId) {
+		return getOrder(orderId) != null;
 	}
 
    public void add(Order order) {
-      orders.put(new PriceLevelKey(order.getClientOrderId(), order.getTimestamp()), order);
+      orders.put(new PriceLevelKey(order.getOrderId(), order.getTimestamp()), order);
       totalQuantity += order.getRemainingQuantity();
    }
 
@@ -64,16 +64,20 @@ public class PriceLevel {
 
 	private static class PriceLevelKey implements Comparable<PriceLevelKey> {
 
-		private int clientOrderId;
+		private int orderId;
 		private long timestamp;
 
-		public PriceLevelKey(int clientOrderId, long timestamp) {
-			this.clientOrderId = clientOrderId;
+		public PriceLevelKey(int orderId, long timestamp) {
+			this.orderId = orderId;
 			this.timestamp = timestamp;
 		}
+	
+		public PriceLevelKey(int orderId) {
+			this.orderId = orderId;
+		}
 
-		public int getClientOrderId() {
-			return clientOrderId;
+		public int getOrderId() {
+			return orderId;
 		}
 
 		public long getTimestamp() {
@@ -82,7 +86,12 @@ public class PriceLevel {
 
 		@Override
 		public boolean equals(Object other) {
-			return (other instanceof PriceLevelKey) && ((PriceLevelKey) other).getClientOrderId() == clientOrderId;	
+			return other != null && (other instanceof PriceLevelKey) && ((PriceLevelKey) other).getOrderId() == orderId;
+		}
+
+		@Override
+		public int hashCode() {
+			return orderId;
 		}
 
 		@Override

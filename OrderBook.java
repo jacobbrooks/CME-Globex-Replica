@@ -12,12 +12,14 @@ public class OrderBook {
 
    private final TreeMap<Long, PriceLevel> bids;
    private final TreeMap<Long, PriceLevel> asks;
-	private final Map<Integer, PriceLevel> priceLevelByClientOrderId;
+	private final Map<Integer, PriceLevel> priceLevelByOrderId;
+	private final Map<String, Integer> orderIdByClientOrderId;
    
    public OrderBook() {
-      bids = new TreeMap<Long, PriceLevel>(Collections.reverseOrder());
-      asks = new TreeMap<Long, PriceLevel>();
-      priceLevelByClientOrderId = new HashMap<Integer, PriceLevel>();
+      this.bids = new TreeMap<Long, PriceLevel>(Collections.reverseOrder());
+      this.asks = new TreeMap<Long, PriceLevel>();
+      this.priceLevelByOrderId = new HashMap<Integer, PriceLevel>();
+		this.orderIdByClientOrderId = new HashMap<String, Integer>();
    }
 
    public OrderResponse addOrder(Order order, boolean print) {
@@ -47,16 +49,18 @@ public class OrderBook {
       }
      
 		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order));
-		if(!addTo.hasOrder(order.getClientOrderId())) {
+		if(!addTo.hasOrder(order.getOrderId())) {
 			addTo.add(order);
 		}
-		priceLevelByClientOrderId.put(order.getClientOrderId(), addTo);
+		priceLevelByOrderId.put(order.getOrderId(), addTo);
+		orderIdByClientOrderId.put(order.getClientOrderId(), order.getOrderId());
 
       return response;
    }
 
-	public Order getOrder(int clientOrderId) {
-		return priceLevelByClientOrderId.get(clientOrderId).getOrder(clientOrderId);
+	public Order getOrder(String clientOrderId) {
+		final int orderId = orderIdByClientOrderId.get(clientOrderId);
+		return priceLevelByOrderId.get(orderId).getOrder(orderId);
 	}
 
    public void printBook() {

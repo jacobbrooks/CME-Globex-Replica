@@ -4,7 +4,7 @@ public class Order {
 
    private static final AtomicInteger NEXT_ORDER_ID = new AtomicInteger(0);
   
-	private final int clientOrderId;
+	private final String clientOrderId;
 	private final int securityId; 
    private final long timestamp;
    private final int orderId;
@@ -15,7 +15,7 @@ public class Order {
    
    private int filledQuantity;
 
-   public Order(int clientOrderId, int securityId, boolean buy, long price, int initialQuantity) {
+   public Order(String clientOrderId, int securityId, boolean buy, long price, int initialQuantity) {
 		this.clientOrderId = clientOrderId;
       this.timestamp = System.currentTimeMillis();
 		this.securityId = securityId;
@@ -25,7 +25,7 @@ public class Order {
       this.orderId = NEXT_ORDER_ID.incrementAndGet();
    }
 
-	public int getClientOrderId() {
+	public String getClientOrderId() {
 		return clientOrderId;
 	}
 

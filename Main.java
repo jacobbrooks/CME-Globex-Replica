@@ -12,11 +12,11 @@ public class Main {
 		final AtomicInteger idGenerator = new AtomicInteger(-1);
       
       Runnable bidTask = () -> {
-      	prices.forEach(p -> gateway.submit(new Order(idGenerator.incrementAndGet(), 1, true, p, 10)));
+      	prices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, true, p, 10)));
       };
 
       Runnable askTask = () -> {
-      	prices.forEach(p -> gateway.submit(new Order(idGenerator.incrementAndGet(), 1, false, p, 10)));
+      	prices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, false, p, 10)));
       };
 
       Thread bidThread = new Thread(bidTask);
