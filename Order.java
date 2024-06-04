@@ -70,7 +70,7 @@ public class Order {
    }
 
    public String toString() {
-      return "$" + price + " - " + getRemainingQuantity() + " @" + timestamp + "ms"; 
+      return "#" + orderId + " - " + getRemainingQuantity() + " @" + timestamp + "ms"; 
    }
 
 }

@@ -8,16 +8,18 @@ public class Main {
 		final OrderGateway gateway = new OrderGateway();
 		gateway.start();
 
-      final List<Long> prices = List.of(100L, 150L, 200L, 250L, 300L);
+      final List<Long> bidPrices = List.of(100L, 150L, 200L, 200L, 250L, 300L);
+      final List<Long> askPrices = List.of(100L, 150L, 175L, 200L, 250L, 300L);
 		final AtomicInteger idGenerator = new AtomicInteger(-1);
       
       Runnable bidTask = () -> {
-      	prices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, true, p, 10)));
+      	bidPrices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, true, p, 10)));
       };
 
+
       Runnable askTask = () -> {
-      	prices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, false, p, 10)));
-      };
+      	askPrices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, false, p, 10)));
+      }; 
 
       Thread bidThread = new Thread(bidTask);
       Thread askThread = new Thread(askTask);

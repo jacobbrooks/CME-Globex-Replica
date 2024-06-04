@@ -1,3 +1,4 @@
+import java.util.stream.Collectors;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -7,13 +8,15 @@ import java.util.TreeMap;
 
 public class PriceLevel {
 
+	private final MatchingAlgorithm matchingAlgorithm;
    private final TreeMap<PriceLevelKey, Order> orders;
    private final long price;
    private int totalQuantity;
 
-   public PriceLevel(Order order) {
+   public PriceLevel(Order order, MatchingAlgorithm matchingAlgorithm) {
+		this.matchingAlgorithm = matchingAlgorithm;
       this.orders = new TreeMap<PriceLevelKey, Order>();
-      this.orders.put(new PriceLevelKey(order.getOrderId(), order.getTimestamp()), order);
+      this.orders.put(getKey(order), order);
       this.price = order.getPrice();
       this.totalQuantity = order.getInitialQuantity();
    }
@@ -35,7 +38,7 @@ public class PriceLevel {
    }
 
 	public Order getOrder(int orderId) {
-		return orders.get(new PriceLevelKey(orderId));
+		return orders.get(getKey(orderId));
 	}
 
 	public boolean hasOrder(int orderId) {
@@ -43,7 +46,7 @@ public class PriceLevel {
 	}
 
    public void add(Order order) {
-      orders.put(new PriceLevelKey(order.getOrderId(), order.getTimestamp()), order);
+      orders.put(getKey(order), order);
       totalQuantity += order.getRemainingQuantity();
    }
 
@@ -55,49 +58,29 @@ public class PriceLevel {
       return price;
    }
 
-   public String toString() {
-      return orders.entrySet().stream()
-         .map(o -> o.getValue().toString())
-         .reduce("", (concat, ord) -> concat + ord + "\n")
-         .trim();
-   }
-
-	private static class PriceLevelKey implements Comparable<PriceLevelKey> {
-
-		private int orderId;
-		private long timestamp;
-
-		public PriceLevelKey(int orderId, long timestamp) {
-			this.orderId = orderId;
-			this.timestamp = timestamp;
-		}
-	
-		public PriceLevelKey(int orderId) {
-			this.orderId = orderId;
-		}
-
-		public int getOrderId() {
-			return orderId;
-		}
-
-		public long getTimestamp() {
-			return timestamp;
-		}
-
-		@Override
-		public boolean equals(Object other) {
-			return other != null && (other instanceof PriceLevelKey) && ((PriceLevelKey) other).getOrderId() == orderId;
-		}
-
-		@Override
-		public int hashCode() {
-			return orderId;
-		}
-
-		@Override
-		public int compareTo(PriceLevelKey other) {
-			return equals(other) ? 0 : timestamp > other.getTimestamp() ? 1 : -1;
+	private PriceLevelKey getKey(Order order) {
+		switch(matchingAlgorithm) {
+		case FIFO:
+			return new FIFOPriceLevelKey(order.getOrderId(), order.getTimestamp());
+		default:
+			return null;
 		}
 	}
+
+	private PriceLevelKey getKey(int orderId) {
+		switch(matchingAlgorithm) {
+		case FIFO:
+			return new FIFOPriceLevelKey(orderId);
+		default:
+			return null;
+		}
+	}
+
+   public String toString() {
+      return "$" + price + ": {" + orders.entrySet().stream()
+         .map(o -> "[" + o.getValue().toString() + "],")
+			.collect(Collectors.joining())
+         .trim() + "}";
+   }
 
 }

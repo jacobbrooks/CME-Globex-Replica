@@ -1,12 +1,18 @@
 public class Security {
    
-   private final String id;
+   private final int id;
+	private MatchingAlgorithm matchingAlgorithm;
    
-   public Security(String id) {
+   public Security(int id, MatchingAlgorithm matchingAlgorithm) {
       this.id = id;
+		this.matchingAlgorithm = matchingAlgorithm;
    }
    
-   public String getId() {
+   public int getId() {
       return id;
    }
+
+	public MatchingAlgorithm getMatchingAlgorithm() {
+		return matchingAlgorithm;
+	}
 }

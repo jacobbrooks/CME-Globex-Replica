@@ -10,12 +10,14 @@ import java.util.TreeMap;
 
 public class OrderBook {
 
+	private final Security security;
    private final TreeMap<Long, PriceLevel> bids;
    private final TreeMap<Long, PriceLevel> asks;
 	private final Map<Integer, PriceLevel> priceLevelByOrderId;
 	private final Map<String, Integer> orderIdByClientOrderId;
    
-   public OrderBook() {
+   public OrderBook(Security security) {
+		this.security = security;
       this.bids = new TreeMap<Long, PriceLevel>(Collections.reverseOrder());
       this.asks = new TreeMap<Long, PriceLevel>();
       this.priceLevelByOrderId = new HashMap<Integer, PriceLevel>();
@@ -47,8 +49,8 @@ public class OrderBook {
       if(order.isFilled()) {
          return response;
       }
-     
-		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order));
+
+		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order, security.getMatchingAlgorithm()));
 		if(!addTo.hasOrder(order.getOrderId())) {
 			addTo.add(order);
 		}
