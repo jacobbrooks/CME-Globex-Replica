@@ -8,20 +8,21 @@ public class Order {
 	private final int securityId; 
    private final long timestamp;
    private final int orderId;
-
+   private final long price;
+   private final int initialQuantity;
    private final boolean buy;
-   private long price;
-   private int initialQuantity;
+	private final int allocationPercentage;
    
    private int filledQuantity;
 
-   public Order(String clientOrderId, int securityId, boolean buy, long price, int initialQuantity) {
+   public Order(String clientOrderId, int securityId, boolean buy, long price, int initialQuantity, int allocationPercentage) {
 		this.clientOrderId = clientOrderId;
       this.timestamp = System.currentTimeMillis();
 		this.securityId = securityId;
       this.buy = buy;
       this.price = price;
       this.initialQuantity = initialQuantity;
+		this.allocationPercentage = allocationPercentage;
       this.orderId = NEXT_ORDER_ID.incrementAndGet();
    }
 
@@ -53,6 +54,10 @@ public class Order {
       return buy;
    }
 
+	public int getAllocationPercentage() {
+		return allocationPercentage;
+	}
+
    public int getFilledQuantity() {
       return filledQuantity;
    }
@@ -61,8 +66,8 @@ public class Order {
       return initialQuantity - filledQuantity;
    }
 
-   public void fill(int initialQuantity) {
-      filledQuantity += initialQuantity;
+   public void fill(int quantity) {
+      filledQuantity += quantity;
    }
 
    public boolean isFilled() {

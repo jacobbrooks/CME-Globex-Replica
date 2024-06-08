@@ -3,6 +3,7 @@ import java.util.List;
 import java.util.Map;
 
 public class OrderResponse {
+
 	private final Map<Long, List<MatchEvent>> matchesByPrice;
 
 	public OrderResponse() {
@@ -21,3 +22,4 @@ public class OrderResponse {
 		return matchesByPrice.isEmpty();
 	}
 }
+

@@ -25,13 +25,21 @@ public class PriceLevel {
 		final List<MatchEvent> matches = new ArrayList<>();
       while(!order.isFilled() && orders.size() > 0) {
          final Order match = orders.firstEntry().getValue();
-         final int fillQuantity = Math.min(order.getRemainingQuantity(), match.getRemainingQuantity());
+
+         final int fillQuantity = matchingAlgorithm == MatchingAlgorithm.FIFO ? 
+				Math.min(order.getRemainingQuantity(), match.getRemainingQuantity()) :
+				matchingAlgorithm == MatchingAlgorithm.FIFOWithLMM ?
+					(int) Math.floor((double) order.getRemainingQuantity() * match.getAllocationPercentage() / 100) :
+					Math.min(order.getRemainingQuantity(), match.getRemainingQuantity());
+
          match.fill(fillQuantity);
          order.fill(fillQuantity);
          totalQuantity -= fillQuantity;
+
          if(match.isFilled()) {
             orders.pollFirstEntry();
          }
+
 			matches.add(new MatchEvent(order.getOrderId(), match.getOrderId(), price, fillQuantity, order.isBuy()));
       }
 		return matches;
@@ -62,6 +70,8 @@ public class PriceLevel {
 		switch(matchingAlgorithm) {
 		case FIFO:
 			return new FIFOPriceLevelKey(order.getOrderId(), order.getTimestamp());
+		case FIFOWithLMM:
+			return new FIFOWithLMMPriceLevelKey(order.getOrderId(), order.getTimestamp(), order.getAllocationPercentage());
 		default:
 			return null;
 		}
@@ -71,6 +81,8 @@ public class PriceLevel {
 		switch(matchingAlgorithm) {
 		case FIFO:
 			return new FIFOPriceLevelKey(orderId);
+		case FIFOWithLMM:
+			return new FIFOWithLMMPriceLevelKey(orderId);
 		default:
 			return null;
 		}

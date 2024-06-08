@@ -1,3 +1,4 @@
+import java.util.stream.Collectors;
 import java.util.PriorityQueue;
 import java.util.Arrays;
 import java.util.Collections;
@@ -63,6 +64,14 @@ public class OrderBook {
 	public Order getOrder(String clientOrderId) {
 		final int orderId = orderIdByClientOrderId.get(clientOrderId);
 		return priceLevelByOrderId.get(orderId).getOrder(orderId);
+	}
+
+	public List<Long> getBidPrices() {
+		return bids.keySet().stream().collect(Collectors.toList());
+	}
+	
+	public List<Long> getAskPrices() {
+		return asks.keySet().stream().collect(Collectors.toList());
 	}
 
    public void printBook() {

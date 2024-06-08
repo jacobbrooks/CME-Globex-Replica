@@ -21,6 +21,13 @@ public abstract class PriceLevelKey implements Comparable<PriceLevelKey> {
 	}
 
 	@Override
-	public abstract int compareTo(PriceLevelKey other);
+	public int compareTo(PriceLevelKey other) {
+		if(equals(other)) {
+			return 0;
+		}
+		return compareToNotEqual(other);
+	}
+
+	protected abstract int compareToNotEqual(PriceLevelKey other);
 }
 

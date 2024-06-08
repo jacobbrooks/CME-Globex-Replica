@@ -16,8 +16,8 @@ public class FIFOPriceLevelKey extends PriceLevelKey {
 	}
 
 	@Override
-	public int compareTo(PriceLevelKey other) {
-		return equals(other) ? 0 : timestamp > ((FIFOPriceLevelKey) other).getTimestamp() ? 1 : -1;
+	protected int compareToNotEqual(PriceLevelKey other) {
+		return timestamp > ((FIFOPriceLevelKey) other).getTimestamp() ? 1 : -1;
 	}
 
 }

@@ -3,28 +3,38 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
-   public static void main(String[] args) throws InterruptedException {
+   public static void main(String[] args) {
+		OrderBookTester orderBookTester = new OrderBookTester();
+		boolean success = orderBookTester.testFIFOOrderBook();
+   }
 
+	private static void testOrderBookViaGateway() throws InterruptedException {
 		final OrderGateway gateway = new OrderGateway();
 		gateway.start();
 
-      final List<Long> bidPrices = List.of(100L, 150L, 200L, 200L, 250L, 300L);
-      final List<Long> askPrices = List.of(100L, 150L, 175L, 200L, 250L, 300L);
+      final List<Long> bidPrices = List.of(100L, 150L, 200L, 250L, 300L);
+      final List<Long> askPrices = List.of(100L, 150L, 200L, 250L, 300L);
+		final List<Integer> bidAllocationPercentages = List.of(0, 0, 0, 50, 0, 0);		
+
 		final AtomicInteger idGenerator = new AtomicInteger(-1);
       
       Runnable bidTask = () -> {
-      	bidPrices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, true, p, 10)));
+			final AtomicInteger idx = new AtomicInteger(0);
+      	bidPrices.forEach(p -> {
+				final int id = idGenerator.incrementAndGet();
+				gateway.submit(new Order(Integer.toString(id), 1, true, p, 10, bidAllocationPercentages.get(idx.getAndIncrement())));
+			});
       };
 
-
       Runnable askTask = () -> {
-      	askPrices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, false, p, 10)));
+      	askPrices.forEach(p -> gateway.submit(new Order(Integer.toString(idGenerator.incrementAndGet()), 1, false, p, 10, 0)));
       }; 
 
       Thread bidThread = new Thread(bidTask);
       Thread askThread = new Thread(askTask);
       
       bidThread.start();
+		try {Thread.sleep(2000);} catch(InterruptedException e) {}
       askThread.start();
 
       bidThread.join();
@@ -33,5 +43,5 @@ public class Main {
 		try {Thread.sleep(1000);} catch(InterruptedException e) {}
  
       gateway.printBook(1);
-   }
+	}
 }
