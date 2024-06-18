@@ -44,7 +44,10 @@ public class OrderBook {
 			best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
 			if(print) {
 				matches.forEach(System.out::println);
-			}
+			} 
+         if(1 == 1) {
+            break;
+         }
       }
       
       if(order.isFilled()) {

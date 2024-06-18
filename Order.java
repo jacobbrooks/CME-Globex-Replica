@@ -11,8 +11,8 @@ public class Order {
    private final long price;
    private final int initialQuantity;
    private final boolean buy;
-	private final int allocationPercentage;
-   
+
+	private int allocationPercentage;
    private int filledQuantity;
 
    public Order(String clientOrderId, int securityId, boolean buy, long price, int initialQuantity, int allocationPercentage) {
@@ -68,6 +68,7 @@ public class Order {
 
    public void fill(int quantity) {
       filledQuantity += quantity;
+      allocationPercentage = 0;
    }
 
    public boolean isFilled() {
@@ -75,7 +76,7 @@ public class Order {
    }
 
    public String toString() {
-      return "#" + orderId + " - " + getRemainingQuantity() + " @" + timestamp + "ms"; 
+      return "#" + orderId + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + allocationPercentage + "%"; 
    }
 
 }

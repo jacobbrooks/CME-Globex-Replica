@@ -6,6 +6,8 @@ public class Main {
    public static void main(String[] args) {
 		OrderBookTester orderBookTester = new OrderBookTester();
 		boolean success = orderBookTester.testFIFOOrderBook();
+      boolean success2 = orderBookTester.testFIFOWithLMMOrderBook();
+      boolean success3 = orderBookTester.testFIFOWithLMMOrderBookOneLeft();
    }
 
 	private static void testOrderBookViaGateway() throws InterruptedException {

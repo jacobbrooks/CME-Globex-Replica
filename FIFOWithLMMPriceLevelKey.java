@@ -19,9 +19,9 @@ public class FIFOWithLMMPriceLevelKey extends FIFOPriceLevelKey {
 	protected int compareToNotEqual(PriceLevelKey other) {
 		final FIFOWithLMMPriceLevelKey casted = (FIFOWithLMMPriceLevelKey) other;
 		return allocationPercentage > 0 && casted.getAllocationPercentage() == 0 ? 
-			1 : allocationPercentage == 0 && casted.getAllocationPercentage() > 0 ? 
-		 		-1	: getTimestamp() > casted.getTimestamp() ? 
-					1 : -1;
+			-1 : allocationPercentage == 0 && casted.getAllocationPercentage() > 0 ? 
+		 	   1 : getTimestamp() < casted.getTimestamp() ? 
+				   -1 : 1;
 	}
 
 }
