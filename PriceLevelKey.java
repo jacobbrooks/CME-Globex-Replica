@@ -1,6 +1,6 @@
 public abstract class PriceLevelKey implements Comparable<PriceLevelKey> {
 
-	private int orderId;
+	protected final int orderId;
 
 	public PriceLevelKey(int orderId) {
 		this.orderId = orderId;
@@ -12,7 +12,7 @@ public abstract class PriceLevelKey implements Comparable<PriceLevelKey> {
 
 	@Override
 	public boolean equals(Object other) {
-		return other != null && (other instanceof PriceLevelKey) && ((PriceLevelKey) other).getOrderId() == orderId;
+		return other != null && getClass() == other.getClass() && ((PriceLevelKey) other).getOrderId() == orderId;
 	}
 
 	@Override
@@ -22,10 +22,7 @@ public abstract class PriceLevelKey implements Comparable<PriceLevelKey> {
 
 	@Override
 	public int compareTo(PriceLevelKey other) {
-		if(equals(other)) {
-			return 0;
-		}
-		return compareToNotEqual(other);
+		return equals(other) ? 0 : compareToNotEqual(other);
 	}
 
 	protected abstract int compareToNotEqual(PriceLevelKey other);

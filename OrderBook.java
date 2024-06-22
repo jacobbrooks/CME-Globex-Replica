@@ -16,6 +16,7 @@ public class OrderBook {
    private final TreeMap<Long, PriceLevel> asks;
 	private final Map<Integer, PriceLevel> priceLevelByOrderId;
 	private final Map<String, Integer> orderIdByClientOrderId;
+   private Order currentTop;
    
    public OrderBook(Security security) {
 		this.security = security;
@@ -45,9 +46,6 @@ public class OrderBook {
 			if(print) {
 				matches.forEach(System.out::println);
 			} 
-         if(1 == 1) {
-            break;
-         }
       }
       
       if(order.isFilled()) {
@@ -56,14 +54,24 @@ public class OrderBook {
 
 		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order, security.getMatchingAlgorithm()));
 		if(!addTo.hasOrder(order.getOrderId())) {
+         // Price level already existed
 			addTo.add(order);
-		}
+		} else if(security.getMatchingAlgorithm() == MatchingAlgorithm.LMMWithTOP) {
+         // We created a new price level
+         final boolean deservesTopStatus = order.getPrice() == resting.firstEntry().getKey().longValue()
+            && order.getRemainingQuantity() >= security.getTopMin();
+         if(deservesTopStatus) {
+            Optional.ofNullable(priceLevelByOrderId.get(currentTop.getOrderId()))
+               .ifPresent(p -> p.assignTop(currentTop, false));
+            addTo.assignTop(order, true);
+         }
+      }
 		priceLevelByOrderId.put(order.getOrderId(), addTo);
 		orderIdByClientOrderId.put(order.getClientOrderId(), order.getOrderId());
 
       return response;
    }
-
+   
 	public Order getOrder(String clientOrderId) {
 		final int orderId = orderIdByClientOrderId.get(clientOrderId);
 		return priceLevelByOrderId.get(orderId).getOrder(orderId);

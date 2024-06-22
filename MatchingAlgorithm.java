@@ -1,8 +1,8 @@
 public enum MatchingAlgorithm {
 	Allocation,
 	FIFO,
-	FIFOWithLMM,
-	FIFOWithTopOrderAndLMM,
+	LMM,
+	LMMWithTOP,
 	ProRata,
 	Configurable,
 	ThresholdProRata,

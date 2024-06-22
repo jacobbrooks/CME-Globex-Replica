@@ -4,10 +4,10 @@ import java.util.stream.IntStream;
 public class OrderBookTester {
 
 	private final OrderBook fifoOrderBook = new OrderBook(new Security(1, MatchingAlgorithm.FIFO));
-	private final OrderBook fifoWithLMMOrderBook = new OrderBook(new Security(1, MatchingAlgorithm.FIFOWithLMM));
+	private final OrderBook lmmOrderBook = new OrderBook(new Security(1, MatchingAlgorithm.LMM));
    
-   public boolean testFIFOWithLMMOrderBookOneLeft() {
-		System.out.println("\ntestFIFOWithLMMOrderBookOneLeft()");
+   public boolean testLMMOrderBookOneLeft() {
+		System.out.println("\ntestLMMOrderBookOneLeft()");
 		System.out.println("===================================");
 
 		final List<Order> bids = List.of(50, 60).stream()
@@ -17,11 +17,11 @@ public class OrderBookTester {
          }).toList();
 
       bids.forEach(o -> {
-         fifoWithLMMOrderBook.addOrder(o, false);
+         lmmOrderBook.addOrder(o, false);
       });
 
       final Order ask = new Order(Integer.toString(0), 1, false, 100L, 1, 0);
-      final OrderResponse response = fifoWithLMMOrderBook.addOrder(ask, false);
+      final OrderResponse response = lmmOrderBook.addOrder(ask, false);
 
       final List<MatchEvent> expectedMatches = List.of(
          new MatchEvent(ask.getOrderId(), bids.get(0).getOrderId(), 100L, 1, false, 0L)
@@ -42,8 +42,8 @@ public class OrderBookTester {
       return true;
    }   
 
-   public boolean testFIFOWithLMMOrderBook() {
-		System.out.println("\ntestFIFOWithLMMOrderBook()");
+   public boolean testLMMOrderBook() {
+		System.out.println("\ntestLMMOrderBook()");
 		System.out.println("==========================");
 
 		final List<Order> bids = List.of(0, 20, 80).stream()
@@ -53,11 +53,11 @@ public class OrderBookTester {
          }).toList();
 
       bids.forEach(o -> {
-         fifoWithLMMOrderBook.addOrder(o, false);
+         lmmOrderBook.addOrder(o, false);
       });
 
       final Order ask = new Order(Integer.toString(0), 1, false, 100L, 30, 0);
-      final OrderResponse response = fifoWithLMMOrderBook.addOrder(ask, false);
+      final OrderResponse response = lmmOrderBook.addOrder(ask, false);
 
       final List<MatchEvent> expectedMatches = List.of(
          new MatchEvent(ask.getOrderId(), bids.get(1).getOrderId(), 100L, 6, false, 0L),
@@ -108,24 +108,18 @@ public class OrderBookTester {
 		final List<Long> actualAsks = fifoOrderBook.getAskPrices();
 
 		if(!(actualBids.size() == expectedBids.size() && actualAsks.size() == expectedAsks.size())) {
-			System.out.println("TEST FAIL");
-			System.out.println("---------");
 			printTestFail("bids", expectedBids.stream().map(l -> l.toString()).toList(), actualBids.stream().map(l -> l.toString()).toList());
 			printTestFail("asks", expectedAsks.stream().map(l -> l.toString()).toList(), actualAsks.stream().map(l -> l.toString()).toList());
 			return false;
 		}
 
 		if(IntStream.range(0, expectedBids.size()).anyMatch(i -> expectedBids.get(i) != actualBids.get(i).longValue())) {
-			System.out.println("TEST FAIL");
-			System.out.println("---------");
 			printTestFail("bids", expectedBids.stream().map(l -> l.toString()).toList(), actualBids.stream().map(l -> l.toString()).toList());
 			printTestFail("asks", expectedAsks.stream().map(l -> l.toString()).toList(), actualAsks.stream().map(l -> l.toString()).toList());
 			return false;
 		}
 	
 		if(IntStream.range(0, expectedAsks.size()).anyMatch(i -> expectedAsks.get(i) != actualAsks.get(i).longValue())) {
-			System.out.println("TEST FAIL");
-			System.out.println("---------");
 			printTestFail("bids", expectedBids.stream().map(l -> l.toString()).toList(), actualBids.stream().map(l -> l.toString()).toList());
 			printTestFail("asks", expectedAsks.stream().map(l -> l.toString()).toList(), actualAsks.stream().map(l -> l.toString()).toList());
 			return false;
@@ -136,6 +130,8 @@ public class OrderBookTester {
 	}
 
 	private void printTestFail(String criteria, List<String> expected, List<String> actual) {
+      System.out.println("TEST FAIL");
+      System.out.println("------------------------------------");
 		System.out.println("Expected " + criteria + ": [");
 		expected.forEach(b -> System.out.println("  " + b + ","));
 		System.out.println("], \nActual " + criteria + ": [");

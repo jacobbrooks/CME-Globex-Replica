@@ -1,13 +1,13 @@
-public class FIFOWithLMMPriceLevelKey extends FIFOPriceLevelKey {
+public class LMMPriceLevelKey extends FIFOPriceLevelKey {
 
 	private int allocationPercentage;
 
-	public FIFOWithLMMPriceLevelKey(int orderId, long timestamp, int allocationPercentage) {
+	public LMMPriceLevelKey(int orderId, long timestamp, int allocationPercentage) {
 		super(orderId, timestamp);
 		this.allocationPercentage = allocationPercentage;
 	}
 
-	public FIFOWithLMMPriceLevelKey(int orderId) {
+	public LMMPriceLevelKey(int orderId) {
 		super(orderId);
 	}
 
@@ -15,13 +15,17 @@ public class FIFOWithLMMPriceLevelKey extends FIFOPriceLevelKey {
 		return allocationPercentage;
 	}
 
-	@Override
-	protected int compareToNotEqual(PriceLevelKey other) {
-		final FIFOWithLMMPriceLevelKey casted = (FIFOWithLMMPriceLevelKey) other;
+   protected int compareToNotEqualLMM(PriceLevelKey other) {
+		final LMMPriceLevelKey casted = (LMMPriceLevelKey) other;
 		return allocationPercentage > 0 && casted.getAllocationPercentage() == 0 ? 
 			-1 : allocationPercentage == 0 && casted.getAllocationPercentage() > 0 ? 
 		 	   1 : getTimestamp() < casted.getTimestamp() ? 
 				   -1 : 1;
+   }
+
+	@Override
+	protected int compareToNotEqual(PriceLevelKey other) {
+      return compareToNotEqualLMM(other);
 	}
 
 }

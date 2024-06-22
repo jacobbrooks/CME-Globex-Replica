@@ -12,6 +12,7 @@ public class Order {
    private final int initialQuantity;
    private final boolean buy;
 
+   private boolean top;
 	private int allocationPercentage;
    private int filledQuantity;
 
@@ -24,6 +25,10 @@ public class Order {
       this.initialQuantity = initialQuantity;
 		this.allocationPercentage = allocationPercentage;
       this.orderId = NEXT_ORDER_ID.incrementAndGet();
+   }
+
+   public void setTop(boolean top) {
+      this.top = top;
    }
 
 	public String getClientOrderId() {
@@ -73,6 +78,10 @@ public class Order {
 
    public boolean isFilled() {
       return getRemainingQuantity() == 0;
+   }
+
+   public boolean isTop() {
+      return top;
    }
 
    public String toString() {
