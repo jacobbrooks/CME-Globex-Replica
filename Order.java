@@ -1,30 +1,33 @@
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Comparator;
 
-public class Order {
+public class Order implements Comparable<Order> {
 
-   private static final AtomicInteger NEXT_ORDER_ID = new AtomicInteger(0);
+   private static final AtomicInteger NEXT_ID = new AtomicInteger(0);
   
+   private final int id;
 	private final String clientOrderId;
-	private final int securityId; 
+	private final Security security; 
    private final long timestamp;
-   private final int orderId;
    private final long price;
    private final int initialQuantity;
    private final boolean buy;
+   private final OrderComparator comparator;
 
    private boolean top;
 	private int allocationPercentage;
    private int filledQuantity;
 
-   public Order(String clientOrderId, int securityId, boolean buy, long price, int initialQuantity, int allocationPercentage) {
+   public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int allocationPercentage) {
+      this.id = NEXT_ID.incrementAndGet();
 		this.clientOrderId = clientOrderId;
+      this.security = security;
       this.timestamp = System.currentTimeMillis();
-		this.securityId = securityId;
       this.buy = buy;
       this.price = price;
       this.initialQuantity = initialQuantity;
 		this.allocationPercentage = allocationPercentage;
-      this.orderId = NEXT_ORDER_ID.incrementAndGet();
+      this.comparator = getComparator(security.getMatchingAlgorithm());
    }
 
    public void setTop(boolean top) {
@@ -39,12 +42,12 @@ public class Order {
       return timestamp;
    }
 
-   public int getOrderId() {
-      return orderId;
+   public int getId() {
+      return id;
    }
 	
-	public int getSecurityId() {
-		return securityId;
+	public Security getSecurity() {
+		return security;
 	}
 
    public long getPrice() {
@@ -84,8 +87,25 @@ public class Order {
       return top;
    }
 
-   public String toString() {
-      return "#" + orderId + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + allocationPercentage + "%"; 
+   @Override
+   public int compareTo(Order other) {
+      return comparator.compare(this, other); 
    }
 
+   public String toString() {
+      return "#" + id + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + allocationPercentage + "%"; 
+   }
+
+   private OrderComparator getComparator(MatchingAlgorithm matchingAlgorithm) {
+      switch(matchingAlgorithm) {
+      case FIFO:
+         return new FIFOComparator();
+      case LMM: 
+         return new LMMComparator();
+      case LMMWithTOP:
+         return new LMMWithTOPComparator();
+      default:
+         return null;
+      }
+   }
 }

@@ -23,9 +23,9 @@ public class OrderGateway {
 				if(nextOrder == null) {
 					continue;
 				}
-				final OrderBook book = orderBooks.computeIfAbsent(nextOrder.getSecurityId(), k -> new OrderBook(securitiesById.get(nextOrder.getSecurityId())));
+				final OrderBook book = orderBooks.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(securitiesById.get(nextOrder.getSecurity().getId())));
 				OrderResponse response = book.addOrder(nextOrder, true);
-				responses.put(nextOrder.getOrderId(), response);
+				responses.put(nextOrder.getId(), response);
 			}
       };
 		new Thread(queueConsumer).start();

@@ -16,7 +16,8 @@ public class OrderBook {
    private final TreeMap<Long, PriceLevel> asks;
 	private final Map<Integer, PriceLevel> priceLevelByOrderId;
 	private final Map<String, Integer> orderIdByClientOrderId;
-   private Order currentTop;
+
+   private Optional<Order> currentTop;
    
    public OrderBook(Security security) {
 		this.security = security;
@@ -24,6 +25,7 @@ public class OrderBook {
       this.asks = new TreeMap<Long, PriceLevel>();
       this.priceLevelByOrderId = new HashMap<Integer, PriceLevel>();
 		this.orderIdByClientOrderId = new HashMap<String, Integer>();
+      this.currentTop = Optional.empty();
    }
 
    public OrderResponse addOrder(Order order, boolean print) {
@@ -53,7 +55,7 @@ public class OrderBook {
       }
 
 		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order, security.getMatchingAlgorithm()));
-		if(!addTo.hasOrder(order.getOrderId())) {
+		if(!addTo.hasOrder(order.getId())) {
          // Price level already existed
 			addTo.add(order);
 		} else if(security.getMatchingAlgorithm() == MatchingAlgorithm.LMMWithTOP) {
@@ -61,13 +63,13 @@ public class OrderBook {
          final boolean deservesTopStatus = order.getPrice() == resting.firstEntry().getKey().longValue()
             && order.getRemainingQuantity() >= security.getTopMin();
          if(deservesTopStatus) {
-            Optional.ofNullable(priceLevelByOrderId.get(currentTop.getOrderId()))
-               .ifPresent(p -> p.assignTop(currentTop, false));
-            addTo.assignTop(order, true);
+            currentTop.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
+            order.setTop(true);
+            currentTop = Optional.ofNullable(order);
          }
       }
-		priceLevelByOrderId.put(order.getOrderId(), addTo);
-		orderIdByClientOrderId.put(order.getClientOrderId(), order.getOrderId());
+		priceLevelByOrderId.put(order.getId(), addTo);
+		orderIdByClientOrderId.put(order.getClientOrderId(), order.getId());
 
       return response;
    }
@@ -84,6 +86,14 @@ public class OrderBook {
 	public List<Long> getAskPrices() {
 		return asks.keySet().stream().collect(Collectors.toList());
 	}
+
+   public void clear() {
+      bids.clear();
+      asks.clear();
+      orderIdByClientOrderId.clear();
+      priceLevelByOrderId.clear();
+      currentTop = null;
+   }
 
    public void printBook() {
       System.out.println("============ Bids " + bids.keySet().size() + " ==============");
