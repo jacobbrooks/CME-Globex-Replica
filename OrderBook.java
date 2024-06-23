@@ -17,7 +17,8 @@ public class OrderBook {
 	private final Map<Integer, PriceLevel> priceLevelByOrderId;
 	private final Map<String, Integer> orderIdByClientOrderId;
 
-   private Optional<Order> currentTop;
+   private Optional<Order> currentTopBid;
+   private Optional<Order> currentTopAsk;
    
    public OrderBook(Security security) {
 		this.security = security;
@@ -25,7 +26,8 @@ public class OrderBook {
       this.asks = new TreeMap<Long, PriceLevel>();
       this.priceLevelByOrderId = new HashMap<Integer, PriceLevel>();
 		this.orderIdByClientOrderId = new HashMap<String, Integer>();
-      this.currentTop = Optional.empty();
+      this.currentTopBid = Optional.empty();
+      this.currentTopAsk = Optional.empty();
    }
 
    public OrderResponse addOrder(Order order, boolean print) {
@@ -63,9 +65,14 @@ public class OrderBook {
          final boolean deservesTopStatus = order.getPrice() == resting.firstEntry().getKey().longValue()
             && order.getRemainingQuantity() >= security.getTopMin();
          if(deservesTopStatus) {
-            currentTop.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
             order.setTop(true);
-            currentTop = Optional.ofNullable(order);
+            if(order.isBuy()) {
+               currentTopBid.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
+               currentTopBid = Optional.of(order);
+            } else {
+               currentTopAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
+               currentTopAsk = Optional.of(order);
+            }
          }
       }
 		priceLevelByOrderId.put(order.getId(), addTo);
@@ -92,7 +99,8 @@ public class OrderBook {
       asks.clear();
       orderIdByClientOrderId.clear();
       priceLevelByOrderId.clear();
-      currentTop = null;
+      currentTopBid = Optional.empty();
+      currentTopAsk = Optional.empty();
    }
 
    public void printBook() {
