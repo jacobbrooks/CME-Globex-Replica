@@ -6,7 +6,7 @@ public class FIFOComparator extends OrderComparator {
 	}
 
    protected int compareTimestamps(Order a, Order b) {
-      return a.getTimestamp() < b.getTimestamp() ? -1 : 1;
+      return a.getTimestamp() <= b.getTimestamp() ? -1 : 1;
    }
 
 }

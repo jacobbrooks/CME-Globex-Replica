@@ -59,6 +59,7 @@ public class OrderBook {
 		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order, security.getMatchingAlgorithm()));
 		if(!addTo.hasOrder(order.getId())) {
          // Price level already existed
+         order.updateProration(addTo.getTotalQuantity());
 			addTo.add(order);
 		} else if(security.getMatchingAlgorithm() == MatchingAlgorithm.LMMWithTOP) {
          // We created a new price level
@@ -74,6 +75,8 @@ public class OrderBook {
                currentTopAsk = Optional.of(order);
             }
          }
+      } else if(security.getMatchingAlgorithm() == MatchingAlgorithm.ProRata) {
+         order.updateProration(order.getRemainingQuantity());
       }
 		priceLevelByOrderId.put(order.getId(), addTo);
 		orderIdByClientOrderId.put(order.getClientOrderId(), order.getId());

@@ -17,6 +17,8 @@ public class Order implements Comparable<Order> {
    private boolean top;
 	private int allocationPercentage;
    private int filledQuantity;
+   private int filledByTopOrderQuantity;
+   private double proration;
 
    public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int allocationPercentage) {
       this.id = NEXT_ID.incrementAndGet();
@@ -28,6 +30,10 @@ public class Order implements Comparable<Order> {
       this.initialQuantity = initialQuantity;
 		this.allocationPercentage = allocationPercentage;
       this.comparator = getComparator(security.getMatchingAlgorithm());
+   }
+
+   public void updateProration(int totalPriceLevelQuantity) {
+      this.proration = (double) getRemainingQuantity() / totalPriceLevelQuantity;
    }
 
    public void setTop(boolean top) {
@@ -74,9 +80,16 @@ public class Order implements Comparable<Order> {
       return initialQuantity - filledQuantity;
    }
 
-   public void fill(int quantity) {
+   public int getRemainingQuantityAfterTopOrderMatch() {
+      return initialQuantity - filledByTopOrderQuantity;
+   }
+      
+   public void fill(int quantity, boolean topOrderMatch) {
       filledQuantity += quantity;
       allocationPercentage = 0;
+      if(topOrderMatch) {
+        filledByTopOrderQuantity = quantity; 
+      }
    }
 
    public boolean isFilled() {
@@ -85,6 +98,10 @@ public class Order implements Comparable<Order> {
 
    public boolean isTop() {
       return top;
+   }
+
+   public double getProration() {
+      return proration;
    }
 
    @Override
@@ -104,6 +121,8 @@ public class Order implements Comparable<Order> {
          return new LMMComparator();
       case LMMWithTOP:
          return new LMMWithTOPComparator();
+      case ProRata:
+         return new ProRataComparator();
       default:
          return null;
       }
