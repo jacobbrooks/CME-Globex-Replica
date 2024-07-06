@@ -59,8 +59,8 @@ public class OrderBook {
 		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order, security.getMatchingAlgorithm()));
 		if(!addTo.hasOrder(order.getId())) {
          // Price level already existed
-         order.updateProration(addTo.getTotalQuantity());
 			addTo.add(order);
+         addTo.updateProrations();
 		} else if(security.getMatchingAlgorithm() == MatchingAlgorithm.LMMWithTOP) {
          // We created a new price level
          final boolean deservesTopStatus = order.getPrice() == resting.firstEntry().getKey().longValue()

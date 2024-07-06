@@ -35,11 +35,9 @@ public class PriceLevel {
          final int aggressingQuantity = Math.max(minFill, getAggressingQuantity(order, match));
          final int fillQuantity = Math.min(aggressingQuantity, match.getRemainingQuantity());
 
-         if(fillQuantity > 0) {
-            match.fill(fillQuantity, false);
-            order.fill(fillQuantity, match.isTop());
-            totalQuantity -= fillQuantity;
-         }
+         match.fill(fillQuantity, false);
+         order.fill(fillQuantity, match.isTop());
+         totalQuantity -= fillQuantity;
 
          if(!match.isFilled()) {
             orders.add(match);
@@ -47,12 +45,12 @@ public class PriceLevel {
             ordersById.remove(match.getId());
          }
 
-         if(matchingAlgorithm == MatchingAlgorithm.ProRata) {
-            updateProrations();
+         if(fillQuantity > 0) {
+			   matches.add(new MatchEvent(order.getId(), match.getId(), price, fillQuantity, order.isBuy(), System.currentTimeMillis()));
          }
-
-			matches.add(new MatchEvent(order.getId(), match.getId(), price, fillQuantity, order.isBuy(), System.currentTimeMillis()));
       }
+
+      prepareOrdersForNextMatch();
 
 		return matches;
    }
@@ -62,17 +60,17 @@ public class PriceLevel {
          return order.getRemainingQuantity();
       }
       if(List.of(MatchingAlgorithm.LMM, MatchingAlgorithm.LMMWithTOP).contains(matchingAlgorithm) 
-            && match.getAllocationPercentage() > 0) {
-			return (int) Math.floor((double) order.getInitialQuantity() * match.getAllocationPercentage() / 100);
+            && match.isLMMAllocatable()) {
+			return (int) Math.floor((double) order.getInitialQuantity() * match.getLMMAllocationPercentage() / 100);
       }
-      if(matchingAlgorithm == MatchingAlgorithm.ProRata) {
+      if(matchingAlgorithm == MatchingAlgorithm.ProRata && match.isProRataAllocatable()) {
          final int lots = (int) Math.floor(order.getRemainingQuantityAfterTopOrderMatch() * match.getProration());
          return lots >= 2 ? lots : 0;
       }
       return order.getRemainingQuantity();   
    }
 
-   private void updateProrations() {
+   public void updateProrations() {
       final Order[] ordersSnapshot = new Order[orders.size()];
       orders.toArray(ordersSnapshot);
       orders.clear();
@@ -80,6 +78,14 @@ public class PriceLevel {
          o.updateProration(totalQuantity);
          orders.add(o);
       });
+   }
+
+   public void prepareOrdersForNextMatch() {
+      // Order here is important, flags need to be reset before re-insertion during updateProrations()
+      orders.forEach(o -> {
+         o.resetMatchingAlgorithmFlags();
+      });
+      updateProrations();
    }
 
    public void unassignTop() {

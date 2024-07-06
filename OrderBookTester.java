@@ -8,10 +8,60 @@ public class OrderBookTester {
    private final Security fifo = new Security(1, MatchingAlgorithm.FIFO);
    private final Security lmm = new Security(1, MatchingAlgorithm.LMM);
    private final Security lmmTop = new Security(1, MatchingAlgorithm.LMMWithTOP);
+   private final Security proRata = new Security(1, MatchingAlgorithm.ProRata);
 
 	private final OrderBook fifoOrderBook = new OrderBook(fifo);
+      
+   // Note to self for these vvv ... We need to test on multiple aggressors
 	private final OrderBook lmmOrderBook = new OrderBook(lmm);
    private final OrderBook lmmTopOrderBook = new OrderBook(lmmTop);
+   private final OrderBook proRataOrderBook = new OrderBook(proRata);
+
+   public boolean testProRataOrderBook() {
+		System.out.println("\ntestProRataOrderBook()");
+		System.out.println("===================================");
+      
+      final List<Order> bids = List.of(2, 42, 56).stream()
+         .map(qty -> {
+            hold(10);
+            return new Order(Integer.toString(0), proRata, true, 100L, qty, 0);
+         }).toList();
+
+      bids.forEach(b -> proRataOrderBook.addOrder(b, false));
+
+      Order ask = new Order(Integer.toString(0), proRata, false, 100L, 50, 0);
+      OrderResponse response = proRataOrderBook.addOrder(ask, false);
+      
+      List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+      List<MatchEvent> expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 28, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 21, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L)
+      );
+
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
+         return false;
+      }
+      
+      ask = new Order(Integer.toString(0), proRata, false, 100L, 50, 0);
+      response = proRataOrderBook.addOrder(ask, false);
+      
+      matches = response.getMatchesByPrice().get(100L);
+      expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 28, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 21, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L)
+      );
+      
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 2", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
+         return false;
+      }
+        
+		System.out.println("TEST SUCCESS");
+      return true;
+   }
 
    public boolean testLMMWithTopOrderBook() {
 		System.out.println("\ntestLMMWithTopOrderBook()");
@@ -24,9 +74,7 @@ public class OrderBookTester {
             return new Order(Integer.toString(0), lmmTop, true, 100L, 10, p);
          }).toList();
 
-      bids.forEach(o -> {
-         lmmTopOrderBook.addOrder(o, false);
-      });
+      bids.forEach(b -> lmmTopOrderBook.addOrder(b, false));
 
       List<Order> top = bids.stream().filter(Order::isTop).toList();
       final String topOrderId = "Order id: " + top.stream()
@@ -128,6 +176,54 @@ public class OrderBookTester {
 		System.out.println("TEST SUCCESS");
       return true;
    }   
+
+   public boolean testLMMOrderBookMultipleAggressors() {
+		System.out.println("\ntestLMMOrderBookMultipleAggressors()");
+		System.out.println("==========================");
+      
+      lmmOrderBook.clear();
+
+		final List<Order> bids = List.of(0, 20, 80).stream()
+         .map(p -> {
+            hold(10);
+            return new Order(Integer.toString(0), lmm, true, 100L, 100, p);
+         }).toList();
+
+      bids.forEach(o -> {
+         lmmOrderBook.addOrder(o, false);
+      });
+
+      Order ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
+      OrderResponse response = lmmOrderBook.addOrder(ask, false);
+
+      List<MatchEvent> expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 24, false, 0L)
+      );
+      List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
+         return false;
+      }
+      
+      ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
+      response = lmmOrderBook.addOrder(ask, false);
+      
+      expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 24, false, 0L)
+      );
+      matches = response.getMatchesByPrice().get(100L);
+      
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 2", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
+         return false;
+      }
+
+		System.out.println("TEST SUCCESS");
+      return true;
+   }
 
    public boolean testLMMOrderBook() {
 		System.out.println("\ntestLMMOrderBook()");

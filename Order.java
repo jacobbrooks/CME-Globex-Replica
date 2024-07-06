@@ -15,12 +15,15 @@ public class Order implements Comparable<Order> {
    private final OrderComparator comparator;
 
    private boolean top;
-	private int allocationPercentage;
+	private int lmmAllocationPercentage;
    private int filledQuantity;
    private int filledByTopOrderQuantity;
    private double proration;
+   
+   private boolean lmmAllocated;
+   private boolean proRataAllocated;
 
-   public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int allocationPercentage) {
+   public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int lmmAllocationPercentage) {
       this.id = NEXT_ID.incrementAndGet();
 		this.clientOrderId = clientOrderId;
       this.security = security;
@@ -28,14 +31,35 @@ public class Order implements Comparable<Order> {
       this.buy = buy;
       this.price = price;
       this.initialQuantity = initialQuantity;
-		this.allocationPercentage = allocationPercentage;
+		this.lmmAllocationPercentage = lmmAllocationPercentage;
       this.comparator = getComparator(security.getMatchingAlgorithm());
+   }
+      
+   public void fill(int quantity, boolean topOrderMatch) {
+      filledQuantity += quantity;
+      if(topOrderMatch) {
+        filledByTopOrderQuantity = quantity; 
+      }
+      if(!lmmAllocated) {
+         lmmAllocated = true;
+      }
+      if(!proRataAllocated) {
+         proRataAllocated = true;
+      }
    }
 
    public void updateProration(int totalPriceLevelQuantity) {
+      if(totalPriceLevelQuantity <= 0 || proRataAllocated) {
+         return;
+      }
       this.proration = (double) getRemainingQuantity() / totalPriceLevelQuantity;
    }
 
+   public void resetMatchingAlgorithmFlags() {
+      this.lmmAllocated = false;
+      this.proRataAllocated = false;
+   }
+      
    public void setTop(boolean top) {
       this.top = top;
    }
@@ -68,8 +92,8 @@ public class Order implements Comparable<Order> {
       return buy;
    }
 
-	public int getAllocationPercentage() {
-		return allocationPercentage;
+	public int getLMMAllocationPercentage() {
+		return lmmAllocationPercentage;
 	}
 
    public int getFilledQuantity() {
@@ -82,14 +106,6 @@ public class Order implements Comparable<Order> {
 
    public int getRemainingQuantityAfterTopOrderMatch() {
       return initialQuantity - filledByTopOrderQuantity;
-   }
-      
-   public void fill(int quantity, boolean topOrderMatch) {
-      filledQuantity += quantity;
-      allocationPercentage = 0;
-      if(topOrderMatch) {
-        filledByTopOrderQuantity = quantity; 
-      }
    }
 
    public boolean isFilled() {
@@ -104,13 +120,29 @@ public class Order implements Comparable<Order> {
       return proration;
    }
 
+   public boolean isLMMAllocated() {
+      return lmmAllocated;
+   }
+
+   public boolean isLMMAllocatable() {
+      return lmmAllocationPercentage > 0 && !lmmAllocated;
+   }  
+
+   public boolean isProRataAllocated() {
+      return proRataAllocated;
+   }
+
+   public boolean isProRataAllocatable() {
+      return proration > 0 && !proRataAllocated;
+   }
+
    @Override
    public int compareTo(Order other) {
       return comparator.compare(this, other); 
    }
 
    public String toString() {
-      return "#" + id + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + allocationPercentage + "%"; 
+      return "#" + id + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + lmmAllocationPercentage + "%"; 
    }
 
    private OrderComparator getComparator(MatchingAlgorithm matchingAlgorithm) {
