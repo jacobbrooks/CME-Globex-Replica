@@ -31,7 +31,8 @@ public class PriceLevel {
       while(!order.isFilled() && orders.size() > 0) {
          final Order match = orders.poll();
 
-         final int minFill = matchingAlgorithm != MatchingAlgorithm.ProRata ? 1 : 0;
+         final int minFill = !List.of(MatchingAlgorithm.ProRata, MatchingAlgorithm.Allocation)
+            .contains(matchingAlgorithm) ? 1 : 0;
          final int aggressingQuantity = Math.max(minFill, getAggressingQuantity(order, match));
          final int fillQuantity = Math.min(aggressingQuantity, match.getRemainingQuantity());
 
@@ -48,6 +49,10 @@ public class PriceLevel {
          if(fillQuantity > 0) {
 			   matches.add(new MatchEvent(order.getId(), match.getId(), price, fillQuantity, order.isBuy(), System.currentTimeMillis()));
          }
+
+         if(match.isTop() && matchingAlgorithm == MatchingAlgorithm.Allocation) {
+            updateProrations();
+         }
       }
 
       prepareOrdersForNextMatch();
@@ -59,11 +64,16 @@ public class PriceLevel {
       if(matchingAlgorithm == MatchingAlgorithm.FIFO) {
          return order.getRemainingQuantity();
       }
-      if(List.of(MatchingAlgorithm.LMM, MatchingAlgorithm.LMMWithTOP).contains(matchingAlgorithm) 
+      if(List.of(MatchingAlgorithm.LMMWithTOP, MatchingAlgorithm.Allocation).contains(matchingAlgorithm)
+            && match.isTop()) {
+         return order.getRemainingQuantity();
+      }
+      if(List.of(MatchingAlgorithm.LMM, MatchingAlgorithm.LMMWithTOP).contains(matchingAlgorithm)
             && match.isLMMAllocatable()) {
 			return (int) Math.floor((double) order.getInitialQuantity() * match.getLMMAllocationPercentage() / 100);
       }
-      if(matchingAlgorithm == MatchingAlgorithm.ProRata && match.isProRataAllocatable()) {
+      if(List.of(MatchingAlgorithm.ProRata, MatchingAlgorithm.Allocation).contains(matchingAlgorithm) 
+            && match.isProRataAllocatable()) {
          final int lots = (int) Math.floor(order.getRemainingQuantityAfterTopOrderMatch() * match.getProration());
          return lots >= 2 ? lots : 0;
       }

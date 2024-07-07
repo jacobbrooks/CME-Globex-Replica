@@ -11,6 +11,7 @@ public class Main {
       boolean success4 = orderBookTester.testLMMWithTopOrderBook();
       boolean success5 = orderBookTester.testLMMOrderBookMultipleAggressors();
       boolean success6 = orderBookTester.testProRataOrderBook();
+      boolean success7 = orderBookTester.testAllocationOrderBook();
    }
 
 	private static void testOrderBookViaGateway() throws InterruptedException {

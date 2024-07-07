@@ -11,7 +11,7 @@ public class ProRataComparator extends FIFOComparator {
       if(a.isProRataAllocatable() && b.isProRataAllocatable()) {
          return a.getProration() > b.getProration() ? -1 : 1;
       }
-      return compareTimestamps(a, b);
+      return super.compareNotEqual(a, b);
 	}
 
 }

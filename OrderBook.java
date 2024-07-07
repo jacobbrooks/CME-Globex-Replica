@@ -61,7 +61,7 @@ public class OrderBook {
          // Price level already existed
 			addTo.add(order);
          addTo.updateProrations();
-		} else if(security.getMatchingAlgorithm() == MatchingAlgorithm.LMMWithTOP) {
+		} else if(List.of(MatchingAlgorithm.LMMWithTOP, MatchingAlgorithm.Allocation).contains(security.getMatchingAlgorithm())) {
          // We created a new price level
          final boolean deservesTopStatus = order.getPrice() == resting.firstEntry().getKey().longValue()
             && order.getRemainingQuantity() >= security.getTopMin();

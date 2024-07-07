@@ -155,6 +155,8 @@ public class Order implements Comparable<Order> {
          return new LMMWithTOPComparator();
       case ProRata:
          return new ProRataComparator();
+      case Allocation:
+         return new AllocationComparator();
       default:
          return null;
       }
