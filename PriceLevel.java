@@ -91,6 +91,9 @@ public class PriceLevel {
    }
 
    public void prepareOrdersForNextMatch() {
+      if(matchingAlgorithm == MatchingAlgorithm.FIFO) {
+         return;
+      }
       // Order here is important, flags need to be reset before re-insertion during updateProrations()
       orders.forEach(o -> {
          o.resetMatchingAlgorithmFlags();
