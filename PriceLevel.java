@@ -52,6 +52,8 @@ public class PriceLevel {
 
          if(match.isTop() && matchingAlgorithm == MatchingAlgorithm.Allocation) {
             updateProrations();
+            // Once top order is allocated, algorithm advances for all resting since only one order can have top status
+            orders.forEach(o -> o.incrementMatchStep());
          }
       }
 

@@ -12,7 +12,7 @@ public class Order implements Comparable<Order> {
    private final long price;
    private final int initialQuantity;
    private final boolean buy;
-   private final OrderComparator comparator;
+   private final MatchStepComparator comparator;
 
    private boolean top;
 	private int lmmAllocationPercentage;
@@ -23,6 +23,8 @@ public class Order implements Comparable<Order> {
    private boolean lmmAllocated;
    private boolean proRataAllocated;
 
+   private int matchStep;
+
    public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int lmmAllocationPercentage) {
       this.id = NEXT_ID.incrementAndGet();
 		this.clientOrderId = clientOrderId;
@@ -32,13 +34,13 @@ public class Order implements Comparable<Order> {
       this.price = price;
       this.initialQuantity = initialQuantity;
 		this.lmmAllocationPercentage = lmmAllocationPercentage;
-      this.comparator = getComparator(security.getMatchingAlgorithm());
+      this.comparator = new MatchStepComparator(security.getMatchingAlgorithm());
    }
       
    public void fill(int quantity, boolean topOrderMatch) {
       filledQuantity += quantity;
       if(topOrderMatch) {
-        filledByTopOrderQuantity = quantity; 
+        filledByTopOrderQuantity = quantity;
       }
       if(!lmmAllocated) {
          lmmAllocated = true;
@@ -46,6 +48,7 @@ public class Order implements Comparable<Order> {
       if(!proRataAllocated) {
          proRataAllocated = true;
       }
+      matchStep++;
    }
 
    public void updateProration(int totalPriceLevelQuantity) {
@@ -58,6 +61,11 @@ public class Order implements Comparable<Order> {
    public void resetMatchingAlgorithmFlags() {
       this.lmmAllocated = false;
       this.proRataAllocated = false;
+      this.matchStep = 0;
+   }
+
+   public void incrementMatchStep() {
+      matchStep++;
    }
       
    public void setTop(boolean top) {
@@ -136,29 +144,17 @@ public class Order implements Comparable<Order> {
       return proration > 0 && !proRataAllocated;
    }
 
+   public int getMatchStep() {
+      return matchStep;
+   }
+
    @Override
    public int compareTo(Order other) {
-      return comparator.compare(this, other); 
+      return comparator.compare(this, other);
    }
 
    public String toString() {
       return "#" + id + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + lmmAllocationPercentage + "%"; 
    }
 
-   private OrderComparator getComparator(MatchingAlgorithm matchingAlgorithm) {
-      switch(matchingAlgorithm) {
-      case FIFO:
-         return new FIFOComparator();
-      case LMM: 
-         return new LMMComparator();
-      case LMMWithTOP:
-         return new LMMWithTOPComparator();
-      case ProRata:
-         return new ProRataComparator();
-      case Allocation:
-         return new AllocationComparator();
-      default:
-         return null;
-      }
-   }
 }

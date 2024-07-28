@@ -1,7 +1,9 @@
-public class FIFOComparator extends OrderComparator {
+import java.util.Comparator;
+
+public class FIFOComparator implements Comparator<Order> {
 
 	@Override
-	protected int compareNotEqual(Order a, Order b) {
+	public int compare(Order a, Order b) {
       return a.getTimestamp() <= b.getTimestamp() ? -1 : 1;
 	}
 
