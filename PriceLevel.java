@@ -110,18 +110,16 @@ public class PriceLevel {
          });
       });
       if(matchStepComparator.hasStep(MatchStep.ProRata)) {
-         updateProrations();
+         updateProrationsAndResort();
       }
    }
 
-   private void updateProrations() {
+   private void updateProrationsAndResort() {
       final int proRataMatchStep = matchStepComparator.getStepIndex(MatchStep.ProRata);
-      final PriorityQueue<OrderContainer> orders = ordersByMatchStep.get(proRataMatchStep);
-      final OrderContainer[] ordersSnapshot = new OrderContainer[orders.size()];
-      orders.toArray(ordersSnapshot);
-      orders.clear();
+      final PriorityQueue<OrderContainer> temp = new PriorityQueue<>();
+      temp.addAll(ordersByMatchStep.get(proRataMatchStep));
       ordersByMatchStep.get(proRataMatchStep).clear();
-      Arrays.stream(ordersSnapshot).forEach(o -> {
+      temp.stream().forEach(o -> {
          o.getOrder().updateProration(totalQuantity);
          ordersByMatchStep.get(proRataMatchStep).add(o);
       });
@@ -146,7 +144,7 @@ public class PriceLevel {
       ordersById.put(order.getId(), order);
       totalQuantity += order.getRemainingQuantity();
       if(matchStepComparator.hasStep(MatchStep.ProRata)) {
-         updateProrations();
+         updateProrationsAndResort();
       }
    }
 
