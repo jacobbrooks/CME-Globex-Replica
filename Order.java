@@ -1,7 +1,6 @@
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.Comparator;
 
-public class Order implements Comparable<Order> {
+public class Order {
 
    private static final AtomicInteger NEXT_ID = new AtomicInteger(0);
   
@@ -12,18 +11,15 @@ public class Order implements Comparable<Order> {
    private final long price;
    private final int initialQuantity;
    private final boolean buy;
-   private final MatchStepComparator comparator;
 
    private boolean top;
 	private int lmmAllocationPercentage;
    private int filledQuantity;
-   private int filledByTopOrderQuantity;
+   private int postTOPQuantity;
    private double proration;
    
    private boolean lmmAllocated;
    private boolean proRataAllocated;
-
-   private int matchStep;
 
    public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int lmmAllocationPercentage) {
       this.id = NEXT_ID.incrementAndGet();
@@ -34,21 +30,20 @@ public class Order implements Comparable<Order> {
       this.price = price;
       this.initialQuantity = initialQuantity;
 		this.lmmAllocationPercentage = lmmAllocationPercentage;
-      this.comparator = new MatchStepComparator(security.getMatchingAlgorithm());
+      this.postTOPQuantity = initialQuantity;
    }
       
-   public void fill(int quantity, boolean topOrderMatch) {
+   public void fill(int quantity, boolean topMatch) {
       filledQuantity += quantity;
-      if(topOrderMatch) {
-        filledByTopOrderQuantity = quantity;
-      }
       if(!lmmAllocated) {
          lmmAllocated = true;
       }
       if(!proRataAllocated) {
          proRataAllocated = true;
       }
-      matchStep++;
+      if(topMatch) {
+         postTOPQuantity = getRemainingQuantity();
+      }
    }
 
    public void updateProration(int totalPriceLevelQuantity) {
@@ -61,13 +56,8 @@ public class Order implements Comparable<Order> {
    public void resetMatchingAlgorithmFlags() {
       this.lmmAllocated = false;
       this.proRataAllocated = false;
-      this.matchStep = 0;
    }
 
-   public void incrementMatchStep() {
-      matchStep++;
-   }
-      
    public void setTop(boolean top) {
       this.top = top;
    }
@@ -112,8 +102,8 @@ public class Order implements Comparable<Order> {
       return initialQuantity - filledQuantity;
    }
 
-   public int getRemainingQuantityAfterTopOrderMatch() {
-      return initialQuantity - filledByTopOrderQuantity;
+   public int getPostTOPQuantity() {
+      return postTOPQuantity;
    }
 
    public boolean isFilled() {
@@ -142,15 +132,6 @@ public class Order implements Comparable<Order> {
 
    public boolean isProRataAllocatable() {
       return proration > 0 && !proRataAllocated;
-   }
-
-   public int getMatchStep() {
-      return matchStep;
-   }
-
-   @Override
-   public int compareTo(Order other) {
-      return comparator.compare(this, other);
    }
 
    public String toString() {

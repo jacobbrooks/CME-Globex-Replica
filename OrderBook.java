@@ -19,6 +19,8 @@ public class OrderBook {
 
    private Optional<Order> currentTopBid;
    private Optional<Order> currentTopAsk;
+
+   private final MatchStepComparator matchStepComparator;
    
    public OrderBook(Security security) {
 		this.security = security;
@@ -28,6 +30,7 @@ public class OrderBook {
 		this.orderIdByClientOrderId = new HashMap<String, Integer>();
       this.currentTopBid = Optional.empty();
       this.currentTopAsk = Optional.empty();
+      this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
    }
 
    public OrderResponse addOrder(Order order, boolean print) {
@@ -36,17 +39,24 @@ public class OrderBook {
       final TreeMap<Long, PriceLevel> resting = order.isBuy() ? bids : asks;
 
 		Optional<PriceLevel> best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
+
       while(best.isPresent() && !order.isFilled()) {
-         final boolean isMatch = order.isBuy() ? best.get().getPrice() <= order.getPrice() : best.get().getPrice() >= order.getPrice();
+         final boolean isMatch = order.isBuy() ? 
+            best.get().getPrice() <= order.getPrice() : 
+            best.get().getPrice() >= order.getPrice();
+
          if(!isMatch) {
             break;
          } 
+   
          final List<MatchEvent> matches = best.get().match(order);
 			response.addMatches(best.get().getPrice(), matches);
          if(best.get().getTotalQuantity() == 0) {
             matchAgainst.pollFirstEntry();
          } 
+
 			best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
+
 			if(print) {
 				matches.forEach(System.out::println);
 			} 
@@ -56,30 +66,30 @@ public class OrderBook {
          return response;
       }
 
-		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order, security.getMatchingAlgorithm()));
-		if(!addTo.hasOrder(order.getId())) {
-         // Price level already existed
-			addTo.add(order);
-         addTo.updateProrations();
-		} else if(List.of(MatchingAlgorithm.LMMWithTOP, MatchingAlgorithm.Allocation).contains(security.getMatchingAlgorithm())) {
-         // We created a new price level
-         final boolean deservesTopStatus = order.getPrice() == resting.firstEntry().getKey().longValue()
-            && order.getRemainingQuantity() >= security.getTopMin();
-         if(deservesTopStatus) {
-            order.setTop(true);
-            if(order.isBuy()) {
-               currentTopBid.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
-               currentTopBid = Optional.of(order);
-            } else {
-               currentTopAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
-               currentTopAsk = Optional.of(order);
-            }
-         }
-      } else if(security.getMatchingAlgorithm() == MatchingAlgorithm.ProRata) {
-         order.updateProration(order.getRemainingQuantity());
-      }
+		final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order.getPrice(), 
+         security.getMatchingAlgorithm(), matchStepComparator));
+
+      final boolean deservesTopStatus = matchStepComparator.hasStep(MatchStep.TOP)
+         && order.getPrice() == resting.firstEntry().getKey().longValue()
+         && order.getRemainingQuantity() >= security.getTopMin()
+         && addTo.isEmpty();
+         
+      order.setTop(deservesTopStatus);
+      addTo.add(order);
 		priceLevelByOrderId.put(order.getId(), addTo);
 		orderIdByClientOrderId.put(order.getClientOrderId(), order.getId());
+      
+      if(!deservesTopStatus) {
+         return response;
+      } 
+
+      if(order.isBuy()) {
+         currentTopBid.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
+         currentTopBid = Optional.of(order);
+      } else {
+         currentTopAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
+         currentTopAsk = Optional.of(order);
+      }
 
       return response;
    }

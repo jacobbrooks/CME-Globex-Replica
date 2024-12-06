@@ -6,33 +6,45 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.stream.IntStream;
 
 public class PriceLevel {
 
 	private final MatchingAlgorithm matchingAlgorithm;
-   private final PriorityQueue<Order> orders;
+   private final List<PriorityQueue<OrderContainer>> ordersByMatchStep;
    private final Map<Integer, Order> ordersById;
    private final long price;
    private int totalQuantity;
+   
+   private final MatchStepComparator matchStepComparator;
 
-   public PriceLevel(Order order, MatchingAlgorithm matchingAlgorithm) {
+   public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator) {
 		this.matchingAlgorithm = matchingAlgorithm;
-      this.orders = new PriorityQueue<Order>();
+      this.matchStepComparator = matchStepComparator;
       this.ordersById = new HashMap<Integer, Order>();
-      this.orders.add(order);
-      this.ordersById.put(order.getId(), order);
-      this.price = order.getPrice();
-      this.totalQuantity = order.getInitialQuantity();
+      this.price = price;
+      this.ordersByMatchStep = new ArrayList<>();
+      IntStream.range(0, matchStepComparator.getNumberOfSteps())
+         .forEach(i -> ordersByMatchStep.add(new PriorityQueue<OrderContainer>()));
    }
 
    public List<MatchEvent> match(Order order) {
 		final List<MatchEvent> matches = new ArrayList<>();
 
-      while(!order.isFilled() && orders.size() > 0) {
-         final Order match = orders.poll();
+      int matchStep = 0;
+      int ordersMatchedForCurrentStep = 0;
+      final int[] initialQueueSizes = ordersByMatchStep.stream().mapToInt(q -> q.size()).toArray();
+      
+      while(!order.isFilled() && matchStep < ordersByMatchStep.size() && ordersByMatchStep.get(matchStep).size() > 0) {
+         final Order match = ordersByMatchStep.get(matchStep).poll().getOrder();
 
-         final int minFill = !List.of(MatchingAlgorithm.ProRata, MatchingAlgorithm.Allocation)
-            .contains(matchingAlgorithm) ? 1 : 0;
+         ordersMatchedForCurrentStep++;
+
+         if(match.getRemainingQuantity() == 0) {
+            continue;
+         }
+
+         final int minFill = !matchStepComparator.hasStep(MatchStep.ProRata) ? 1 : 0;
          final int aggressingQuantity = Math.max(minFill, getAggressingQuantity(order, match));
          final int fillQuantity = Math.min(aggressingQuantity, match.getRemainingQuantity());
 
@@ -41,7 +53,7 @@ public class PriceLevel {
          totalQuantity -= fillQuantity;
 
          if(!match.isFilled()) {
-            orders.add(match);
+            ordersByMatchStep.get(matchStep).add(new OrderContainer(match, matchStepComparator, matchStep));
          } else {
             ordersById.remove(match.getId());
          }
@@ -49,12 +61,17 @@ public class PriceLevel {
          if(fillQuantity > 0) {
 			   matches.add(new MatchEvent(order.getId(), match.getId(), price, fillQuantity, order.isBuy(), System.currentTimeMillis()));
          }
-
+         
+         // For Allocation: Re-prorate orders WRT postTOPQuantity for the upcoming ProRata pass
          if(match.isTop() && matchingAlgorithm == MatchingAlgorithm.Allocation) {
-            updateProrations();
-            // Once top order is allocated, algorithm advances for all resting since only one order can have top status
-            orders.forEach(o -> o.incrementMatchStep());
+            ordersByMatchStep.get(matchStep + 1).forEach(cont -> cont.getOrder().updateProration(totalQuantity)); 
          }
+
+         if(ordersMatchedForCurrentStep == initialQueueSizes[matchStep]) {
+            ordersMatchedForCurrentStep = 0;
+            matchStep++;
+         }
+
       }
 
       prepareOrdersForNextMatch();
@@ -66,47 +83,50 @@ public class PriceLevel {
       if(matchingAlgorithm == MatchingAlgorithm.FIFO) {
          return order.getRemainingQuantity();
       }
-      if(List.of(MatchingAlgorithm.LMMWithTOP, MatchingAlgorithm.Allocation).contains(matchingAlgorithm)
-            && match.isTop()) {
-         return order.getRemainingQuantity();
+      if(matchStepComparator.hasStep(MatchStep.TOP) && match.isTop()) {
+         return order.getInitialQuantity();
       }
-      if(List.of(MatchingAlgorithm.LMM, MatchingAlgorithm.LMMWithTOP).contains(matchingAlgorithm)
-            && match.isLMMAllocatable()) {
-			return (int) Math.floor((double) order.getInitialQuantity() * match.getLMMAllocationPercentage() / 100);
+      if(matchStepComparator.hasStep(MatchStep.LMM) && match.isLMMAllocatable()) {
+			return (int) Math.floor((double) order.getPostTOPQuantity() * match.getLMMAllocationPercentage() / 100);
       }
-      if(List.of(MatchingAlgorithm.ProRata, MatchingAlgorithm.Allocation).contains(matchingAlgorithm) 
-            && match.isProRataAllocatable()) {
-         final int lots = (int) Math.floor(order.getRemainingQuantityAfterTopOrderMatch() * match.getProration());
+      if(matchStepComparator.hasStep(MatchStep.ProRata) && match.isProRataAllocatable()) {
+         final int lots = (int) Math.floor(order.getPostTOPQuantity() * match.getProration());
          return lots >= 2 ? lots : 0;
       }
       return order.getRemainingQuantity();   
-   }
-
-   public void updateProrations() {
-      final Order[] ordersSnapshot = new Order[orders.size()];
-      orders.toArray(ordersSnapshot);
-      orders.clear();
-      Arrays.stream(ordersSnapshot).forEach(o -> {
-         o.updateProration(totalQuantity);
-         orders.add(o);
-      });
    }
 
    public void prepareOrdersForNextMatch() {
       if(matchingAlgorithm == MatchingAlgorithm.FIFO) {
          return;
       }
-      // Order here is important, flags need to be reset before re-insertion during updateProrations()
-      orders.forEach(o -> {
-         o.resetMatchingAlgorithmFlags();
+      ordersByMatchStep.forEach(orders -> {
+         orders.forEach(o -> {
+            o.getOrder().resetMatchingAlgorithmFlags();
+         });
       });
-      updateProrations();
+      if(matchStepComparator.hasStep(MatchStep.ProRata)) {
+         updateProrations();
+      }
+   }
+
+   private void updateProrations() {
+      final int proRataMatchStep = matchStepComparator.getStepIndex(MatchStep.ProRata);
+      final PriorityQueue<OrderContainer> orders = ordersByMatchStep.get(proRataMatchStep);
+      final OrderContainer[] ordersSnapshot = new OrderContainer[orders.size()];
+      orders.toArray(ordersSnapshot);
+      orders.clear();
+      ordersByMatchStep.get(proRataMatchStep).clear();
+      Arrays.stream(ordersSnapshot).forEach(o -> {
+         o.getOrder().updateProration(totalQuantity);
+         ordersByMatchStep.get(proRataMatchStep).add(o);
+      });
    }
 
    public void unassignTop() {
-      final Order unTop = orders.poll();
-      unTop.setTop(false);
-      orders.add(unTop);
+      final OrderContainer unTop = ordersByMatchStep.get(0).poll();
+      unTop.getOrder().setTop(false);
+      ordersByMatchStep.get(0).add(unTop);
    }
 
 	public Order getOrder(int orderId) {
@@ -118,9 +138,12 @@ public class PriceLevel {
 	}
 
    public void add(Order order) {
-      orders.add(order);
+      addOrderToProperQueues(order);
       ordersById.put(order.getId(), order);
       totalQuantity += order.getRemainingQuantity();
+      if(matchStepComparator.hasStep(MatchStep.ProRata)) {
+         updateProrations();
+      }
    }
 
    public int getTotalQuantity() {
@@ -131,11 +154,51 @@ public class PriceLevel {
       return price;
    }
 
+   public boolean isEmpty() {
+      return ordersById.isEmpty();
+   }
+
    public String toString() {
-      return "$" + price + ": {" + orders.stream()
+      return "$" + price + ": {" + ordersByMatchStep.stream()
+         .flatMap(q -> q.stream())
+         .distinct()
          .map(o -> "[" + o.toString() + "],")
 			.collect(Collectors.joining())
          .trim() + "}";
+   }
+
+   private void addOrderToProperQueues(Order order) {
+      IntStream.range(0, matchStepComparator.getNumberOfSteps())
+         .filter(stepIndex -> matchStepComparator.orderFitsStepCriteria(stepIndex, order))
+         .forEach(stepIndex -> ordersByMatchStep.get(stepIndex)
+            .add(new OrderContainer(order, matchStepComparator, stepIndex)));
+   }
+
+   private static final class OrderContainer implements Comparable<OrderContainer> {
+
+      private final Order order;
+      private final MatchStepComparator matchStepComparator;
+      private final int matchStep;
+
+      public OrderContainer(Order order, MatchStepComparator matchStepComparator, int matchStep) {
+         this.order = order;
+         this.matchStepComparator = matchStepComparator;
+         this.matchStep = matchStep;
+      }
+
+      public Order getOrder() {
+         return order;
+      }
+
+      public int getMatchStep() {
+         return matchStep;
+      }
+
+      @Override
+      public int compareTo(OrderContainer other) {
+         return matchStepComparator.compare(order, other.getOrder(), matchStep); 
+      }
+ 
    }
 
 }

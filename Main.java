@@ -5,13 +5,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Main {
    public static void main(String[] args) {
 		OrderBookTester orderBookTester = new OrderBookTester();
+
 		boolean success = orderBookTester.testFIFOOrderBook();
       boolean success2 = orderBookTester.testLMMOrderBook();
       boolean success3 = orderBookTester.testLMMOrderBookOneLeft();
       boolean success4 = orderBookTester.testLMMWithTopOrderBook();
       boolean success5 = orderBookTester.testLMMOrderBookMultipleAggressors();
-      boolean success6 = orderBookTester.testProRataOrderBook();
-      boolean success7 = orderBookTester.testAllocationOrderBook();
+      boolean success6 = orderBookTester.testLMMWithTopOrderBookMultipleAggressors();
+      boolean success7 = orderBookTester.testProRataOrderBook();
+      boolean success8 = orderBookTester.testAllocationOrderBook(); 
    }
 
 	private static void testOrderBookViaGateway() throws InterruptedException {
