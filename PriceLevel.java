@@ -35,7 +35,12 @@ public class PriceLevel {
       int ordersMatchedForCurrentStep = 0;
       final int[] initialQueueSizes = ordersByMatchStep.stream().mapToInt(q -> q.size()).toArray();
       
-      while(!order.isFilled() && matchStep < ordersByMatchStep.size() && ordersByMatchStep.get(matchStep).size() > 0) {
+      while(!order.isFilled() && matchStep < ordersByMatchStep.size()) {
+         if(ordersByMatchStep.get(matchStep).size() == 0) {
+            matchStep++;
+            continue;
+         }
+
          final Order match = ordersByMatchStep.get(matchStep).poll().getOrder();
 
          ordersMatchedForCurrentStep++;
@@ -71,7 +76,6 @@ public class PriceLevel {
             ordersMatchedForCurrentStep = 0;
             matchStep++;
          }
-
       }
 
       prepareOrdersForNextMatch();

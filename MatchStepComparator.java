@@ -6,8 +6,8 @@ import java.util.Map;
 
 public class MatchStepComparator {
    
-   private final Map<MatchingAlgorithm, List<MatchStep>> algorithmSteps;
-   private final Map<MatchStep, Comparator<Order>> matchStepComparators;
+   private static final Map<MatchingAlgorithm, List<MatchStep>> algorithmSteps = new HashMap<>();
+   private static final Map<MatchStep, Comparator<Order>> matchStepComparators = new HashMap<>();
 
    private static final FIFOComparator fifoComparator = new FIFOComparator();
    private static final LMMComparator lmmComparator = new LMMComparator();
@@ -19,7 +19,6 @@ public class MatchStepComparator {
    public MatchStepComparator(MatchingAlgorithm matchingAlgorithm) {
       this.matchingAlgorithm = matchingAlgorithm;
 
-      algorithmSteps = new HashMap<>();
       algorithmSteps.put(MatchingAlgorithm.FIFO, 
          List.of(MatchStep.FIFO));
       algorithmSteps.put(MatchingAlgorithm.LMM, 
@@ -31,7 +30,6 @@ public class MatchStepComparator {
       algorithmSteps.put(MatchingAlgorithm.Allocation, 
          List.of(MatchStep.TOP, MatchStep.ProRata, MatchStep.FIFO));
 
-      matchStepComparators = new HashMap<>();
       matchStepComparators.put(MatchStep.FIFO, fifoComparator);
       matchStepComparators.put(MatchStep.LMM, lmmComparator);
       matchStepComparators.put(MatchStep.ProRata, proRataComparator);

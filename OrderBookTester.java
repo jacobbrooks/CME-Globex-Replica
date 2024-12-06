@@ -55,7 +55,21 @@ public class OrderBookTester {
       );
 
       if(!equalMatches(expectedMatches, matches)) {
-         printTestFail("matches", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
+         printTestFail("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
+         return false;
+      }
+
+      // There should now be 50 resting quantity on the book, let's hit it with one more aggressor
+      ask = new Order(Integer.toString(0), allocation, false, 100L, 50, 0);
+      response = allocationOrderBook.addOrder(ask, false);
+      matches = response.getMatchesByPrice().get(100L);
+      expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 28, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 22, false, 0L)
+      );
+
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 2", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
          return false;
       }
       
