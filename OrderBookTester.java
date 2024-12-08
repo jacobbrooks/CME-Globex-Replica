@@ -11,6 +11,8 @@ public class OrderBookTester {
    private final Security proRata = new Security(1, MatchingAlgorithm.ProRata);
    private final Security allocation = new Security(1, MatchingAlgorithm.Allocation);
    private final Security configurable = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 40);
+   private final Security configurableNoFIFO = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 0);
+   private final Security configurableNoProRata = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 100);
 
 	private final OrderBook fifoOrderBook = new OrderBook(fifo);
 	private final OrderBook lmmOrderBook = new OrderBook(lmm);
@@ -18,6 +20,137 @@ public class OrderBookTester {
    private final OrderBook proRataOrderBook = new OrderBook(proRata);
    private final OrderBook allocationOrderBook = new OrderBook(allocation);
    private final OrderBook configurableOrderBook = new OrderBook(configurable);
+   private final OrderBook configurableNoFIFOOrderBook = new OrderBook(configurableNoFIFO);
+   private final OrderBook configurableNoProRataOrderBook = new OrderBook(configurableNoProRata);
+
+   public boolean testConfigurableNoProRataOrderBook() {
+		System.out.println("\ntestConfigurableNoProRataOrderBook()");
+		System.out.println("===================================");
+      
+      // Pairs are {qty, lmmPercentage}
+      final List<Order> bids = List.of(new int[]{1, 0}, new int[]{59, 20}, new int[]{40, 10}).stream().map(pair -> {
+         hold(10);
+         return new Order(Integer.toString(0), configurableNoProRata, true, 100L, pair[0], pair[1]);
+      }).toList();      
+
+      bids.forEach(b -> configurableNoProRataOrderBook.addOrder(b, false));
+      
+      final List<Order> top = bids.stream().filter(Order::isTop).toList();
+      final String topOrderId = "Order id: " + top.stream()
+         .map(o -> Integer.toString(o.getId())).findAny().orElse("none");
+
+      if(top.size() != 1) {
+         printTestFail("TOP event 1: Not exactly 1 top order");
+         return false;
+      }
+
+      if(!bids.get(0).isTop()) {
+         printTestFail("TOP event 1: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId));
+         return false;
+      }
+
+      final Order ask = new Order(Integer.toString(0), configurableNoProRata, false, 100L, 50, 0);
+      final OrderResponse response = configurableNoProRataOrderBook.addOrder(ask, false);
+   
+      /*
+       * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
+       * LMM pass - Order 1 is filled for its LMM allocation 20% * 49 = 9, aggressor qty = 40
+       * LMM pass - Order 2 is filled for its LMM allocation 10% * 49 = 4, aggressor qty = 36
+       * Split FIFO Pass - Order 1 has 50 remaining qty and is the earliest in the book, and
+       *    therefore receives all 100% * 36 remaining aggressor lots
+       */ 
+      final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+      final List<MatchEvent> expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 9, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 4, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 36, false, 0L)
+      );
+
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 1", expectedMatches.stream()
+            .map(MatchEvent::toString).toList(), matches.stream()
+            .map(MatchEvent::toString).toList());
+         return false;
+      }
+
+		System.out.println("TEST SUCCESS");
+      return true;
+   }
+
+   public boolean testConfigurableNoFIFOOrderBook() {
+		System.out.println("\ntestConfigurableNoFIFOOrderBook()");
+		System.out.println("===================================");
+      
+      // Pairs are {qty, lmmPercentage}
+      final List<Order> bids = List.of(new int[]{1, 0}, new int[]{59, 20}, new int[]{40, 10}).stream().map(pair -> {
+         hold(10);
+         return new Order(Integer.toString(0), configurableNoFIFO, true, 100L, pair[0], pair[1]);
+      }).toList();      
+
+      bids.forEach(b -> configurableNoFIFOOrderBook.addOrder(b, false));
+      
+      final List<Order> top = bids.stream().filter(Order::isTop).toList();
+      final String topOrderId = "Order id: " + top.stream()
+         .map(o -> Integer.toString(o.getId())).findAny().orElse("none");
+
+      if(top.size() != 1) {
+         printTestFail("TOP event 1: Not exactly 1 top order");
+         return false;
+      }
+
+      if(!bids.get(0).isTop()) {
+         printTestFail("TOP event 1: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId));
+         return false;
+      }
+
+      final Order ask = new Order(Integer.toString(0), configurableNoFIFO, false, 100L, 50, 0);
+      OrderResponse response = configurableNoFIFOOrderBook.addOrder(ask, false);
+   
+      /*
+       * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
+       * LMM pass - Order 1 is filled for its LMM allocation 20% * 49 = 9, aggressor qty = 40
+       * LMM pass - Order 2 is filled for its LMM allocation 10% * 49 = 4, aggressor qty = 36
+       * Split FIFO Pass - 0% aggressor qty is configured for SplitFIFO pass so we move on to ProRata
+       * Pro Rata pass - Total resting qty = 86, order 1 has the largest share at 50, so it is allocated
+       *    (50 / 86) * 36 = 20 lots
+       * Pro Rata pass - Order 2 has the next largest share at 36 so it is allocated
+       *    (36 / 86) * 36 = 15 lots, aggressor qty = 1
+       * FIFO pass - Order 1 is the earliest order in the book and is assigned the last aggressor lot
+       */ 
+      final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+      final List<MatchEvent> expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 9, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 4, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 20, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 15, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 1, false, 0L)
+      );
+
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 1", expectedMatches.stream()
+            .map(MatchEvent::toString).toList(), matches.stream()
+            .map(MatchEvent::toString).toList());
+         return false;
+      }
+
+      /*
+       * Unrelated to the core objective of this test, but I just want to make sure that if a price level
+       * that previously had a TOP order was completely filled, it is eligible to harbor another TOP order
+       * (obviously given that no better price level exists).
+       */
+      final Order oneMoreTOP = new Order(Integer.toString(0), configurableNoFIFO, true, 100L, 1, 0);
+      response = configurableNoFIFOOrderBook.addOrder(oneMoreTOP, false);
+
+      if(oneMoreTOP.isTop()) {
+         printTestFail("TOP event 2: Not exactly 1 top order");
+         return false;
+      }
+
+		System.out.println("TEST SUCCESS");
+      return true;
+   }
 
    public boolean testConfigurableOrderBook() {
 		System.out.println("\ntestConfigurableOrderBook()");

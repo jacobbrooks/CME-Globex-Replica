@@ -36,7 +36,11 @@ public class PriceLevel {
       final int[] initialQueueSizes = ordersByMatchStep.stream().mapToInt(q -> q.size()).toArray();
 
       while(!order.isFilled() && matchStepIndex < ordersByMatchStep.size()) {
-         if(ordersByMatchStep.get(matchStepIndex).size() == 0) {
+         final boolean skipMatchStep = ordersByMatchStep.get(matchStepIndex).size() == 0
+            || (matchStepComparator.getMatchStep(matchStepIndex) == MatchStep.SplitFIFO
+                  && order.getRemainingSplitFIFOQuantity() == 0);
+
+         if(skipMatchStep) {
             prepareForNextMatchStep(order, matchStepIndex + 1, initialQueueSizes);
             matchStepIndex++;
             continue;

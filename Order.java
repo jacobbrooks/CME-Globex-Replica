@@ -73,8 +73,8 @@ public class Order {
    }
 
    public void setInitialSplitFIFOQuantity() {
-      this.remainingSplitFIFOQuantity = (int) Math.round(((double) security.getSplitPercentage() 
-         * getRemainingQuantity()) / 100);
+      this.remainingSplitFIFOQuantity = (int) Math.round((security.getSplitPercentage() 
+         * (double) getRemainingQuantity()) / 100);
    }
 
    public void markForLeveling() {
