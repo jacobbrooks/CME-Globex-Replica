@@ -48,7 +48,7 @@ public class OrderBook {
          if(!isMatch) {
             break;
          } 
-   
+
          final List<MatchEvent> matches = best.get().match(order);
 			response.addMatches(best.get().getPrice(), matches);
          if(best.get().getTotalQuantity() == 0) {
@@ -60,6 +60,14 @@ public class OrderBook {
 			if(print) {
 				matches.forEach(System.out::println);
 			} 
+      }
+
+      if(currentTopBid.map(Order::isFilled).orElse(false)) {
+         currentTopBid = Optional.empty();
+      }
+
+      if(currentTopAsk.map(Order::isFilled).orElse(false)) {
+         currentTopAsk = Optional.empty();
       }
       
       if(order.isFilled()) {
@@ -73,7 +81,7 @@ public class OrderBook {
          && order.getPrice() == resting.firstEntry().getKey().longValue()
          && order.getRemainingQuantity() >= security.getTopMin()
          && addTo.isEmpty();
-         
+   
       order.setTop(deservesTopStatus);
       addTo.add(order);
 		priceLevelByOrderId.put(order.getId(), addTo);

@@ -12,14 +12,16 @@ public class Order {
    private final int initialQuantity;
    private final boolean buy;
 
-   private boolean top;
 	private int lmmAllocationPercentage;
    private int filledQuantity;
-   private int postTOPQuantity;
+   private int currentStepInitialQuantity;
+   private int remainingSplitFIFOQuantity;
    private double proration;
    
+   private boolean top;
    private boolean lmmAllocated;
    private boolean proRataAllocated;
+   private boolean markedForLeveling;
 
    public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int lmmAllocationPercentage) {
       this.id = NEXT_ID.incrementAndGet();
@@ -30,19 +32,22 @@ public class Order {
       this.price = price;
       this.initialQuantity = initialQuantity;
 		this.lmmAllocationPercentage = lmmAllocationPercentage;
-      this.postTOPQuantity = initialQuantity;
+      this.currentStepInitialQuantity = initialQuantity;
    }
       
-   public void fill(int quantity, boolean topMatch) {
+   public void fill(int quantity, MatchStep matchStep) {
       filledQuantity += quantity;
-      if(!lmmAllocated) {
+      if(matchStep == MatchStep.LMM && !lmmAllocated) {
          lmmAllocated = true;
       }
-      if(!proRataAllocated) {
+      if(matchStep == MatchStep.ProRata && !proRataAllocated) {
          proRataAllocated = true;
       }
-      if(topMatch) {
-         postTOPQuantity = getRemainingQuantity();
+      if(matchStep == MatchStep.Leveling && markedForLeveling) {
+         markedForLeveling = false;
+      }
+      if(remainingSplitFIFOQuantity > 0) {
+         remainingSplitFIFOQuantity -= quantity;
       }
    }
 
@@ -56,10 +61,24 @@ public class Order {
    public void resetMatchingAlgorithmFlags() {
       this.lmmAllocated = false;
       this.proRataAllocated = false;
+      this.markedForLeveling = false;
    }
 
    public void setTop(boolean top) {
       this.top = top;
+   }
+
+   public void setInitialQuantityForNextStep() {
+      this.currentStepInitialQuantity = getRemainingQuantity();
+   }
+
+   public void setInitialSplitFIFOQuantity() {
+      this.remainingSplitFIFOQuantity = (int) Math.round(((double) security.getSplitPercentage() 
+         * getRemainingQuantity()) / 100);
+   }
+
+   public void markForLeveling() {
+      this.markedForLeveling = true;
    }
 
 	public String getClientOrderId() {
@@ -102,8 +121,12 @@ public class Order {
       return initialQuantity - filledQuantity;
    }
 
-   public int getPostTOPQuantity() {
-      return postTOPQuantity;
+   public int getRemainingSplitFIFOQuantity() {
+      return remainingSplitFIFOQuantity;
+   }
+   
+   public int getCurrentStepInitialQuantity() {
+      return currentStepInitialQuantity;
    }
 
    public boolean isFilled() {
@@ -132,6 +155,10 @@ public class Order {
 
    public boolean isProRataAllocatable() {
       return proration > 0 && !proRataAllocated;
+   }
+
+   public boolean isMarkedForLeveling() {
+      return markedForLeveling;
    }
 
    public String toString() {

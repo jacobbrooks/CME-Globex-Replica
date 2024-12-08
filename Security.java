@@ -3,6 +3,7 @@ public class Security {
    private final int id;
    private final int topMin;
    private final int topMax;
+   private final int splitPercentage;
 	private final MatchingAlgorithm matchingAlgorithm;
    
    public Security(int id, MatchingAlgorithm matchingAlgorithm) {
@@ -10,13 +11,15 @@ public class Security {
 		this.matchingAlgorithm = matchingAlgorithm;
       this.topMin = 0;
       this.topMax = 0;
+      this.splitPercentage = 0;
    }
    
-   public Security(int id, MatchingAlgorithm matchingAlgorithm, int topMin, int topMax) {
+   public Security(int id, MatchingAlgorithm matchingAlgorithm, int topMin, int topMax, int splitPercentage) {
       this.id = id;
 		this.matchingAlgorithm = matchingAlgorithm;
       this.topMin = topMin;
       this.topMax = topMax;
+      this.splitPercentage = splitPercentage;
    }
    
    public int getId() {
@@ -33,5 +36,9 @@ public class Security {
 
    public int getTopMax() {
       return topMax;
+   }
+
+   public int getSplitPercentage() {
+      return splitPercentage;
    }
 }

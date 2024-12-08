@@ -5,7 +5,7 @@ public class ProRataComparator extends FIFOComparator {
 	@Override
 	public int compare(Order a, Order b) {
       if(a.isProRataAllocatable() && b.isProRataAllocatable()) {
-         return (int) Math.floor((b.getProration() * 100) - (a.getProration() * 100));
+         return b.getRemainingQuantity() - a.getRemainingQuantity();
       }
       if(a.isProRataAllocatable() && !b.isProRataAllocatable()) {
          return -1;
