@@ -91,7 +91,7 @@ public class PriceLevel {
 
       // Re-prorate orders WRT current total qty if ProRata step is not first (e.g. Allocation, Configurable)
       if(matchStepComparator.getStepIndex(MatchStep.ProRata) == nextStep) {
-         ordersByMatchStep.get(nextStep).forEach(cont -> cont.getOrder().updateProration(totalQuantity)); 
+         updateProrationsAndResort();
       }
 
       // If Configurable Algo and next step is SplitFIFO, take a snapshot of the initial SplitFIFO quantity
@@ -110,15 +110,16 @@ public class PriceLevel {
    }
 
    private int getAggressingQuantity(Order order, Order match, int matchStepIndex) {
-      if(matchStepComparator.hasStep(MatchStep.TOP) && match.isTop()) {
-         return order.getInitialQuantity();
+      if(matchStepComparator.getStepIndex(MatchStep.TOP) == matchStepIndex && match.isTop()) {
+         final int max = order.getSecurity().getTopMax();
+         return Math.min(order.getInitialQuantity(), max > 0 ? max : order.getInitialQuantity());
       }
       if(matchStepComparator.getStepIndex(MatchStep.SplitFIFO) == matchStepIndex) {
          return order.getRemainingSplitFIFOQuantity();
       }
-      if(matchingAlgorithm == MatchingAlgorithm.Configurable 
-         && matchStepComparator.getStepIndex(MatchStep.ProRata) == matchStepIndex) {
-         return (int) Math.floor(order.getCurrentStepInitialQuantity() * match.getProration());
+      if(matchStepComparator.getStepIndex(MatchStep.ProRata) == matchStepIndex && match.isProRataAllocatable()) {
+         final int lots = (int) Math.floor(order.getCurrentStepInitialQuantity() * match.getProration());
+         return lots >= order.getSecurity().getProRataMin() ? lots : 0;
       }
       if(matchStepComparator.getStepIndex(MatchStep.Leveling) == matchStepIndex) {
          return 1;
@@ -129,10 +130,6 @@ public class PriceLevel {
       if(matchStepComparator.hasStep(MatchStep.LMM) && match.isLMMAllocatable()) {
 			return (int) Math.floor((double) order.getCurrentStepInitialQuantity() 
             * match.getLMMAllocationPercentage() / 100);
-      }
-      if(matchStepComparator.hasStep(MatchStep.ProRata) && match.isProRataAllocatable()) {
-         final int lots = (int) Math.floor(order.getCurrentStepInitialQuantity() * match.getProration());
-         return lots >= 2 ? lots : 0;
       }
       return order.getRemainingQuantity();   
    }
@@ -146,7 +143,12 @@ public class PriceLevel {
             o.getOrder().resetMatchingAlgorithmFlags();
          });
       });
-      if(matchStepComparator.hasStep(MatchStep.ProRata)) {
+
+      /* 
+       * We only need to due this for pure ProRata algorithm because it is the first match step.
+       * Otherwise it is handled by prepareMatchForNextStep()
+       */
+      if(matchingAlgorithm == MatchingAlgorithm.ProRata) {
          updateProrationsAndResort();
       }
    }

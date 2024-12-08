@@ -30,6 +30,10 @@ public class MatchStepComparator {
          List.of(MatchStep.ProRata, MatchStep.FIFO));
       algorithmSteps.put(MatchingAlgorithm.Allocation, 
          List.of(MatchStep.TOP, MatchStep.ProRata, MatchStep.FIFO));
+      algorithmSteps.put(MatchingAlgorithm.ThresholdProRata, 
+         List.of(MatchStep.TOP, MatchStep.ProRata, MatchStep.FIFO));
+      algorithmSteps.put(MatchingAlgorithm.ThresholdProRataWithLMM, 
+         List.of(MatchStep.TOP, MatchStep.LMM, MatchStep.ProRata, MatchStep.FIFO));
       algorithmSteps.put(MatchingAlgorithm.Configurable, 
          List.of(MatchStep.TOP, MatchStep.LMM, MatchStep.SplitFIFO, MatchStep.ProRata, 
             MatchStep.Leveling, MatchStep.FIFO));

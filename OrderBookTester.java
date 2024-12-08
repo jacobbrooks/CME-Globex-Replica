@@ -10,9 +10,11 @@ public class OrderBookTester {
    private final Security lmmTop = new Security(1, MatchingAlgorithm.LMMWithTOP);
    private final Security proRata = new Security(1, MatchingAlgorithm.ProRata);
    private final Security allocation = new Security(1, MatchingAlgorithm.Allocation);
-   private final Security configurable = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 40);
-   private final Security configurableNoFIFO = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 0);
-   private final Security configurableNoProRata = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 100);
+   private final Security configurable = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 2, 40);
+   private final Security configurableNoFIFO = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 2, 0);
+   private final Security configurableNoProRata = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 2, 100);
+   private final Security thresholdProRata = new Security(1, MatchingAlgorithm.ThresholdProRata, 10, 100, 1);
+   private final Security thresholdProRataWithLMM = new Security(1, MatchingAlgorithm.ThresholdProRataWithLMM, 25, 250, 1);
 
 	private final OrderBook fifoOrderBook = new OrderBook(fifo);
 	private final OrderBook lmmOrderBook = new OrderBook(lmm);
@@ -22,6 +24,106 @@ public class OrderBookTester {
    private final OrderBook configurableOrderBook = new OrderBook(configurable);
    private final OrderBook configurableNoFIFOOrderBook = new OrderBook(configurableNoFIFO);
    private final OrderBook configurableNoProRataOrderBook = new OrderBook(configurableNoProRata);
+   private final OrderBook thresholdProRataOrderBook = new OrderBook(thresholdProRata);
+   private final OrderBook thresholdProRataWithLMMOrderBook = new OrderBook(thresholdProRataWithLMM);
+
+   public boolean testThresholdProRataWithLMMOrderBook() {
+		System.out.println("\ntestThresholdProRataWithLMMOrderBook()");
+		System.out.println("===================================");
+      
+      // Pairs are {qty, lmmPercentage}
+      final List<Order> bids = List.of(new int[]{300, 0}, new int[]{15, 0}, new int[]{160, 40}).stream()
+         .map(pair -> {
+            hold(10);
+            return new Order(Integer.toString(0), thresholdProRataWithLMM, true, 100L, pair[0], pair[1]);
+         }).toList();      
+
+      bids.forEach(b -> thresholdProRataWithLMMOrderBook.addOrder(b, false));
+      
+      final List<Order> top = bids.stream().filter(Order::isTop).toList();
+      final String topOrderId = "Order id: " + top.stream()
+         .map(o -> Integer.toString(o.getId())).findAny().orElse("none");
+
+      if(top.size() != 1) {
+         printTestFail("TOP event 1: Not exactly 1 top order");
+         return false;
+      }
+
+      if(!bids.get(0).isTop()) {
+         printTestFail("TOP event 1: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId));
+         return false;
+      }
+
+      final Order ask = new Order(Integer.toString(0), thresholdProRataWithLMM, false, 100L, 400, 0);
+      final OrderResponse response = thresholdProRataWithLMMOrderBook.addOrder(ask, false);
+
+      final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+      final List<MatchEvent> expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 250, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 60, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 54, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 27, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 8, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L)
+      );
+
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 1", expectedMatches.stream()
+            .map(MatchEvent::toString).toList(), matches.stream()
+            .map(MatchEvent::toString).toList());
+         return false;
+      }
+      
+		System.out.println("TEST SUCCESS");
+      return true;
+   }
+
+   public boolean testThresholdProRataOrderBook() {
+		System.out.println("\ntestThresholdProRataOrderBook()");
+		System.out.println("===================================");
+      
+      final List<Order> bids = List.of(150, 8, 160).stream()
+         .map(qty -> {
+            hold(10);
+            return new Order(Integer.toString(0), thresholdProRata, true, 100L, qty, 0);
+         }).toList();
+
+      bids.forEach(b -> thresholdProRataOrderBook.addOrder(b, false));
+      
+      final List<Order> top = bids.stream().filter(Order::isTop).toList();
+      final String topOrderId = "Order id: " + top.stream()
+         .map(o -> Integer.toString(o.getId())).findAny().orElse("none");
+
+      if(top.size() != 1) {
+         printTestFail("Not exactly 1 top order");
+         return false;
+      }
+
+      if(!bids.get(0).isTop()) {
+         printTestFail("Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId));
+         return false;
+      }
+
+      final Order ask = new Order(Integer.toString(0), thresholdProRata, false, 100L, 200, 0);
+      final OrderResponse response = thresholdProRataOrderBook.addOrder(ask, false);
+      
+      final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+      final List<MatchEvent> expectedMatches = List.of(
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 100, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 73, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 22, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 3, false, 0L),
+         new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 2, false, 0L)
+      );
+
+      if(!equalMatches(expectedMatches, matches)) {
+         printTestFail("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList());
+         return false;
+      }
+
+		System.out.println("TEST SUCCESS");
+      return true;
+   }
 
    public boolean testConfigurableNoProRataOrderBook() {
 		System.out.println("\ntestConfigurableNoProRataOrderBook()");
