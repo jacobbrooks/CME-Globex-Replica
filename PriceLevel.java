@@ -145,7 +145,7 @@ public class PriceLevel {
       });
 
       /* 
-       * We only need to due this for pure ProRata algorithm because it is the first match step.
+       * We only need to do this for pure ProRata algorithm because it is the first match step.
        * Otherwise it is handled by prepareMatchForNextStep()
        */
       if(matchingAlgorithm == MatchingAlgorithm.ProRata) {

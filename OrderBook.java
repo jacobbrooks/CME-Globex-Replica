@@ -16,11 +16,14 @@ public class OrderBook {
    private final TreeMap<Long, PriceLevel> asks;
 	private final Map<Integer, PriceLevel> priceLevelByOrderId;
 	private final Map<String, Integer> orderIdByClientOrderId;
+   private final PriorityQueue<Order> stopOrders;
 
    private Optional<Order> currentTopBid;
    private Optional<Order> currentTopAsk;
 
    private final MatchStepComparator matchStepComparator;
+      
+   private long lastTradedPrice;
    
    public OrderBook(Security security) {
 		this.security = security;
@@ -31,6 +34,7 @@ public class OrderBook {
       this.currentTopBid = Optional.empty();
       this.currentTopAsk = Optional.empty();
       this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
+      this.stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
    }
 
    public OrderResponse addOrder(Order order, boolean print) {
@@ -40,10 +44,22 @@ public class OrderBook {
 
 		Optional<PriceLevel> best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
 
+      final long bestPrice = best.map(b -> b.getPrice()).orElse(this.lastTradedPrice);
+
+      if(order.isStopLimit() || order.isStopWithProtection()) {
+         stopOrders.add(order);
+         return response;
+      }
+
       while(best.isPresent() && !order.isFilled()) {
-         final boolean isMatch = order.isBuy() ? 
+         final boolean isMarketMatch = order.isMarketLimit() ||
+            (order.isMarketWithProtection() && (order.isBuy() ? 
+               best.get().getPrice() < bestPrice + order.getProtectionPoints() :
+               best.get().getPrice() > bestPrice - order.getProtectionPoints()));
+
+         final boolean isMatch = isMarketMatch || (order.isBuy() ? 
             best.get().getPrice() <= order.getPrice() : 
-            best.get().getPrice() >= order.getPrice();
+            best.get().getPrice() >= order.getPrice());
 
          if(!isMatch) {
             break;
@@ -51,15 +67,22 @@ public class OrderBook {
 
          final List<MatchEvent> matches = best.get().match(order);
 			response.addMatches(best.get().getPrice(), matches);
+         
+         this.lastTradedPrice = best.get().getPrice();
+
          if(best.get().getTotalQuantity() == 0) {
             matchAgainst.pollFirstEntry();
-         } 
+         }
 
 			best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
 
 			if(print) {
 				matches.forEach(System.out::println);
 			} 
+      }
+    
+      if(order.isMarketWithProtection()) {
+         order.setPrice(order.isBuy() ? bestPrice + order.getProtectionPoints() : bestPrice - order.getProtectionPoints());
       }
 
       if(currentTopBid.map(Order::isFilled).orElse(false)) {

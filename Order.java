@@ -8,11 +8,15 @@ public class Order {
 	private final String clientOrderId;
 	private final Security security; 
    private final long timestamp;
-   private final long price;
+   private final long protectionPoints;
+   private final long triggerPrice;
    private final int initialQuantity;
    private final boolean buy;
+   private final OrderType orderType;
+   private final OrderDuration orderDuration;
 
-	private int lmmAllocationPercentage;
+	private long price;
+   private int lmmAllocationPercentage;
    private int filledQuantity;
    private int currentStepInitialQuantity;
    private int remainingSplitFIFOQuantity;
@@ -33,6 +37,26 @@ public class Order {
       this.initialQuantity = initialQuantity;
 		this.lmmAllocationPercentage = lmmAllocationPercentage;
       this.currentStepInitialQuantity = initialQuantity;
+      this.orderType = OrderType.Limit;
+      this.orderDuration = OrderDuration.Day;
+      this.protectionPoints = 0;
+      this.triggerPrice = 0;
+   }
+
+   public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int lmmAllocationPercentage, OrderType orderType, OrderDuration orderDuration, long protectionPoints, long triggerPrice) {
+      this.id = NEXT_ID.incrementAndGet();
+		this.clientOrderId = clientOrderId;
+      this.security = security;
+      this.timestamp = System.currentTimeMillis();
+      this.buy = buy;
+      this.price = price;
+      this.initialQuantity = initialQuantity;
+		this.lmmAllocationPercentage = lmmAllocationPercentage;
+      this.currentStepInitialQuantity = initialQuantity;
+      this.orderType = orderType;
+      this.orderDuration = orderDuration;
+      this.protectionPoints = protectionPoints;
+      this.triggerPrice = triggerPrice;
    }
       
    public void fill(int quantity, MatchStep matchStep) {
@@ -62,6 +86,10 @@ public class Order {
       this.lmmAllocated = false;
       this.proRataAllocated = false;
       this.markedForLeveling = false;
+   }
+
+   public void setPrice(long price) {
+      this.price = price;
    }
 
    public void setTop(boolean top) {
@@ -99,6 +127,10 @@ public class Order {
 
    public long getPrice() {
       return price;
+   }
+
+   public long getProtectionPoints() {
+      return protectionPoints;
    }
 
    public int getInitialQuantity() {
@@ -159,6 +191,22 @@ public class Order {
 
    public boolean isMarkedForLeveling() {
       return markedForLeveling;
+   }
+
+   public boolean isMarketLimit() {
+      return orderType == OrderType.MarketLimit;
+   }
+
+   public boolean isMarketWithProtection() {
+      return orderType == OrderType.MarketWithProtection;
+   }
+
+   public boolean isStopLimit() {
+      return orderType == OrderType.Stop;
+   }
+
+   public boolean isStopWithProtection() {
+      return orderType == OrderType.StopWithProtection;
    }
 
    public String toString() {

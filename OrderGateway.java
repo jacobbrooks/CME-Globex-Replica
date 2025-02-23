@@ -3,12 +3,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 public class OrderGateway {
 
 	final PriorityBlockingQueue<Order> orderQueue = new PriorityBlockingQueue<>(1, Comparator.comparing(Order::getTimestamp));
 	final Map<Integer, OrderBook> orderBooks = new ConcurrentHashMap<>(); 
-	final Map<Integer, OrderResponse> responses = new ConcurrentHashMap<>();
+	final Map<Integer, List<OrderResponse>> responses = new ConcurrentHashMap<>();
 	final Map<Integer, Security> securitiesById = new HashMap<>();
 
 	public OrderGateway() {
