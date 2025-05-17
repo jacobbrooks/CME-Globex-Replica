@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.cme.OrderBookTester" tests="13" skipped="0" failures="0" errors="0" timestamp="2025-05-17T15:39:11" hostname="Jacobs-Air.lan" time="0.789">
+  <properties/>
+  <testcase name="testThresholdProRataOrderBook()" classname="com.cme.OrderBookTester" time="0.052"/>
+  <testcase name="testAllocationOrderBook()" classname="com.cme.OrderBookTester" time="0.038"/>
+  <testcase name="testLMMOrderBookMultipleAggressors()" classname="com.cme.OrderBookTester" time="0.037"/>
+  <testcase name="testLMMWithTopOrderBook()" classname="com.cme.OrderBookTester" time="0.073"/>
+  <testcase name="testThresholdProRataWithLMMOrderBook()" classname="com.cme.OrderBookTester" time="0.038"/>
+  <testcase name="testLMMWithTopOrderBookMultipleAggressors()" classname="com.cme.OrderBookTester" time="0.038"/>
+  <testcase name="testProRataOrderBook()" classname="com.cme.OrderBookTester" time="0.039"/>
+  <testcase name="testLMMOrderBook()" classname="com.cme.OrderBookTester" time="0.037"/>
+  <testcase name="testFIFOOrderBook()" classname="com.cme.OrderBookTester" time="0.136"/>
+  <testcase name="testLMMOrderBookOneLeft()" classname="com.cme.OrderBookTester" time="0.026"/>
+  <testcase name="testConfigurableNoProRataOrderBook()" classname="com.cme.OrderBookTester" time="0.042"/>
+  <testcase name="testConfigurableNoFIFOOrderBook()" classname="com.cme.OrderBookTester" time="0.041"/>
+  <testcase name="testConfigurableOrderBook()" classname="com.cme.OrderBookTester" time="0.18"/>
+  <system-out><![CDATA[
+testThresholdProRataOrderBook()
+===================================
+
+testProRataOrderBook()
+===================================
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

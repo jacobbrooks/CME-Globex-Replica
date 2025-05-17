@@ -1,0 +1,27 @@
+plugins {
+	id 'application'
+}
+
+group = 'com.cme'
+version = '1.0'
+sourceCompatibility = '17'
+
+repositories {
+	mavenCentral()
+}
+
+application {
+    mainClass = 'com.cme.Main' 
+}
+
+dependencies {
+   compileOnly group: 'org.projectlombok', name: 'lombok', version: '1.18.26'
+   annotationProcessor 'org.projectlombok:lombok:1.18.26'
+
+   testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
+   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
