@@ -1,13 +1,13 @@
 package com.cme;
 
 public enum MatchingAlgorithm {
-	Allocation,
-	FIFO,
-	LMM,
-	LMMWithTOP,
-	ProRata,
-	Configurable,
-	ThresholdProRata,
-	ThresholdProRataWithLMM,
-	InstitutionalPrioritizationMatchAlgorithm
+    Allocation,
+    FIFO,
+    LMM,
+    LMMWithTOP,
+    ProRata,
+    Configurable,
+    ThresholdProRata,
+    ThresholdProRataWithLMM,
+    InstitutionalPrioritizationMatchAlgorithm
 }

@@ -1,9 +1,9 @@
 package com.cme;
 
 public enum OrderType {
-   Limit,
-   MarketLimit,
-   MarketWithProtection,
-   Stop,
-   StopWithProtection 
+    Limit,
+    MarketLimit,
+    MarketWithProtection,
+    Stop,
+    StopWithProtection
 }

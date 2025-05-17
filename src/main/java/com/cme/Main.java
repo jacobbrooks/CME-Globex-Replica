@@ -1,11 +1,7 @@
 package com.cme;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
 public class Main {
-   public static void main(String[] args) {
+    public static void main(String[] args) {
       /*
 		OrderBookTester orderBookTester = new OrderBookTester();
 
@@ -22,9 +18,9 @@ public class Main {
       boolean success11 = orderBookTester.testConfigurableNoProRataOrderBook(); 
       boolean success12 = orderBookTester.testThresholdProRataOrderBook();
       boolean success13 = orderBookTester.testThresholdProRataWithLMMOrderBook();*/
-   }
+    }
 
-	private static void testOrderBookViaGateway() throws InterruptedException {
+    private static void testOrderBookViaGateway() throws InterruptedException {
       /*
 		final OrderGateway gateway = new OrderGateway();
 		gateway.start();
@@ -61,5 +57,5 @@ public class Main {
 		try {Thread.sleep(1000);} catch(InterruptedException e) {}
  
       gateway.printBook(1);*/
-	}
+    }
 }
