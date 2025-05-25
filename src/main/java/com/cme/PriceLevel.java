@@ -1,9 +1,12 @@
 package com.cme;
 
+import lombok.Getter;
+
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+@Getter
 public class PriceLevel {
 
     private final MatchingAlgorithm matchingAlgorithm;
@@ -29,10 +32,10 @@ public class PriceLevel {
 
         int matchStepIndex = 0;
         int ordersMatchedForCurrentStep = 0;
-        final int[] initialQueueSizes = ordersByMatchStep.stream().mapToInt(q -> q.size()).toArray();
+        final int[] initialQueueSizes = ordersByMatchStep.stream().mapToInt(PriorityQueue::size).toArray();
 
         while (!order.isFilled() && matchStepIndex < ordersByMatchStep.size()) {
-            final boolean skipMatchStep = ordersByMatchStep.get(matchStepIndex).size() == 0
+            final boolean skipMatchStep = ordersByMatchStep.get(matchStepIndex).isEmpty()
                     || (matchStepComparator.getMatchStep(matchStepIndex) == MatchStep.SplitFIFO
                     && order.getRemainingSplitFIFOQuantity() == 0);
 
@@ -190,21 +193,13 @@ public class PriceLevel {
                         .add(new OrderContainer(order, matchStepComparator, stepIndex)));
     }
 
-    public int getTotalQuantity() {
-        return totalQuantity;
-    }
-
-    public long getPrice() {
-        return price;
-    }
-
     public boolean isEmpty() {
         return ordersById.isEmpty();
     }
 
     public String toString() {
         return "$" + price + ": {" + ordersByMatchStep.stream()
-                .flatMap(q -> q.stream())
+                .flatMap(Collection::stream)
                 .distinct()
                 .map(o -> "[" + o.toString() + "],")
                 .collect(Collectors.joining())
@@ -212,7 +207,7 @@ public class PriceLevel {
     }
 
     private static final class OrderContainer implements Comparable<OrderContainer> {
-
+        @Getter
         private final Order order;
         private final MatchStepComparator matchStepComparator;
         private final int matchStepIndex;
@@ -221,10 +216,6 @@ public class PriceLevel {
             this.order = order;
             this.matchStepComparator = matchStepComparator;
             this.matchStepIndex = matchStepIndex;
-        }
-
-        public Order getOrder() {
-            return order;
         }
 
         public int getMatchStep() {

@@ -1,7 +1,11 @@
 package com.cme;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Getter
 public class Order {
 
     private static final AtomicInteger NEXT_ID = new AtomicInteger(0);
@@ -17,6 +21,7 @@ public class Order {
     private final OrderType orderType;
     private final OrderDuration orderDuration;
 
+    @Setter
     private long price;
     private int lmmAllocationPercentage;
     private int filledQuantity;
@@ -24,6 +29,7 @@ public class Order {
     private int remainingSplitFIFOQuantity;
     private double proration;
 
+    @Setter
     private boolean top;
     private boolean lmmAllocated;
     private boolean proRataAllocated;
@@ -90,14 +96,6 @@ public class Order {
         this.markedForLeveling = false;
     }
 
-    public void setPrice(long price) {
-        this.price = price;
-    }
-
-    public void setTop(boolean top) {
-        this.top = top;
-    }
-
     public void setInitialQuantityForNextStep() {
         this.currentStepInitialQuantity = getRemainingQuantity();
     }
@@ -111,68 +109,16 @@ public class Order {
         this.markedForLeveling = true;
     }
 
-    public String getClientOrderId() {
-        return clientOrderId;
-    }
-
-    public long getTimestamp() {
-        return timestamp;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public Security getSecurity() {
-        return security;
-    }
-
-    public long getPrice() {
-        return price;
-    }
-
-    public long getProtectionPoints() {
-        return protectionPoints;
-    }
-
-    public int getInitialQuantity() {
-        return initialQuantity;
-    }
-
-    public boolean isBuy() {
-        return buy;
-    }
-
     public int getLMMAllocationPercentage() {
         return lmmAllocationPercentage;
-    }
-
-    public int getFilledQuantity() {
-        return filledQuantity;
     }
 
     public int getRemainingQuantity() {
         return initialQuantity - filledQuantity;
     }
 
-    public int getRemainingSplitFIFOQuantity() {
-        return remainingSplitFIFOQuantity;
-    }
-
-    public int getCurrentStepInitialQuantity() {
-        return currentStepInitialQuantity;
-    }
-
     public boolean isFilled() {
         return getRemainingQuantity() == 0;
-    }
-
-    public boolean isTop() {
-        return top;
-    }
-
-    public double getProration() {
-        return proration;
     }
 
     public boolean isLMMAllocated() {
@@ -183,16 +129,8 @@ public class Order {
         return lmmAllocationPercentage > 0 && !lmmAllocated;
     }
 
-    public boolean isProRataAllocated() {
-        return proRataAllocated;
-    }
-
     public boolean isProRataAllocatable() {
         return proration > 0 && !proRataAllocated;
-    }
-
-    public boolean isMarkedForLeveling() {
-        return markedForLeveling;
     }
 
     public boolean isMarketLimit() {

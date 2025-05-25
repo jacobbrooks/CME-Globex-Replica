@@ -56,7 +56,8 @@ public class OrderBookTester {
         }
 
         final Order ask = new Order(Integer.toString(0), thresholdProRataWithLMM, false, 100L, 400, 0);
-        final OrderResponse response = thresholdProRataWithLMMOrderBook.addOrder(ask, false);
+        thresholdProRataWithLMMOrderBook.addOrder(ask, false);
+        final OrderResponse response = thresholdProRataWithLMMOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         final List<MatchEvent> expectedMatches = List.of(
@@ -101,7 +102,8 @@ public class OrderBookTester {
         }
 
         final Order ask = new Order(Integer.toString(0), thresholdProRata, false, 100L, 200, 0);
-        final OrderResponse response = thresholdProRataOrderBook.addOrder(ask, false);
+        thresholdProRataOrderBook.addOrder(ask, false);
+        final OrderResponse response = thresholdProRataOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         final List<MatchEvent> expectedMatches = List.of(
@@ -140,7 +142,8 @@ public class OrderBookTester {
         }
 
         final Order ask = new Order(Integer.toString(0), configurableNoProRata, false, 100L, 50, 0);
-        final OrderResponse response = configurableNoProRataOrderBook.addOrder(ask, false);
+        configurableNoProRataOrderBook.addOrder(ask, false);
+        final OrderResponse response = configurableNoProRataOrderBook.getLastOrderResponse(ask.getId());
 
         /*
          * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
@@ -187,7 +190,8 @@ public class OrderBookTester {
         }
 
         final Order ask = new Order(Integer.toString(0), configurableNoFIFO, false, 100L, 50, 0);
-        OrderResponse response = configurableNoFIFOOrderBook.addOrder(ask, false);
+        configurableNoFIFOOrderBook.addOrder(ask, false);
+        final OrderResponse response = configurableNoFIFOOrderBook.getLastOrderResponse(ask.getId());
 
         /*
          * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
@@ -222,7 +226,7 @@ public class OrderBookTester {
          * (obviously given that no better price level exists).
          */
         final Order oneMoreTOP = new Order(Integer.toString(0), configurableNoFIFO, true, 100L, 1, 0);
-        response = configurableNoFIFOOrderBook.addOrder(oneMoreTOP, false);
+        configurableNoFIFOOrderBook.addOrder(oneMoreTOP, false);
 
         if (oneMoreTOP.isTop()) {
             fail(getFailMessage("TOP event 2: Not exactly 1 top order"));
@@ -254,7 +258,8 @@ public class OrderBookTester {
         }
 
         Order ask = new Order(Integer.toString(0), configurable, false, 100L, 202, 0);
-        OrderResponse response = configurableOrderBook.addOrder(ask, false);
+        configurableOrderBook.addOrder(ask, false);
+        OrderResponse response = configurableOrderBook.getLastOrderResponse(ask.getId());
 
         /*
          * 1. TOP pass - order 0 should match for 2 lots -> aggressor qty = 200
@@ -319,7 +324,8 @@ public class OrderBookTester {
 
 
         ask = new Order(Integer.toString(0), configurable, false, 200L, 8, 0);
-        response = configurableOrderBook.addOrder(ask, false);
+        configurableOrderBook.addOrder(ask, false);
+        response = configurableOrderBook.getLastOrderResponse(ask.getId());
 
         /*
          * 1. TOP Pass - Order 0 is filled for 1 lot
@@ -370,7 +376,8 @@ public class OrderBookTester {
         }
 
         Order ask = new Order(Integer.toString(0), allocation, false, 100L, 50, 0);
-        OrderResponse response = allocationOrderBook.addOrder(ask, false);
+        allocationOrderBook.addOrder(ask, false);
+        OrderResponse response = allocationOrderBook.getLastOrderResponse(ask.getId());
 
         List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         List<MatchEvent> expectedMatches = List.of(
@@ -386,7 +393,8 @@ public class OrderBookTester {
 
         // There should now be 50 resting quantity on the book, let's hit it with one more aggressor
         ask = new Order(Integer.toString(0), allocation, false, 100L, 50, 0);
-        response = allocationOrderBook.addOrder(ask, false);
+        allocationOrderBook.addOrder(ask, false);
+        response = allocationOrderBook.getLastOrderResponse(ask.getId());
         matches = response.getMatchesByPrice().get(100L);
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 28, false, 0L),
@@ -412,7 +420,8 @@ public class OrderBookTester {
         bids.forEach(b -> proRataOrderBook.addOrder(b, false));
 
         Order ask = new Order(Integer.toString(0), proRata, false, 100L, 50, 0);
-        OrderResponse response = proRataOrderBook.addOrder(ask, false);
+        proRataOrderBook.addOrder(ask, false);
+        OrderResponse response = proRataOrderBook.getLastOrderResponse(ask.getId());
 
         List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         List<MatchEvent> expectedMatches = List.of(
@@ -426,7 +435,8 @@ public class OrderBookTester {
         }
 
         ask = new Order(Integer.toString(0), proRata, false, 100L, 50, 0);
-        response = proRataOrderBook.addOrder(ask, false);
+        proRataOrderBook.addOrder(ask, false);
+        response = proRataOrderBook.getLastOrderResponse(ask.getId());
 
         matches = response.getMatchesByPrice().get(100L);
         expectedMatches = List.of(
@@ -502,7 +512,8 @@ public class OrderBookTester {
          *
          * then lastly a FIFO match the last order for the all 10 lots.
          */
-        final OrderResponse response = lmmTopOrderBook.addOrder(ask, false);
+        lmmTopOrderBook.addOrder(ask, false);
+        final OrderResponse response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
         List<MatchEvent> matches = response.getMatchesByPrice().get(200L);
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), higherBids.get(0).getId(), 200L, 10, false, 0L),
@@ -533,7 +544,8 @@ public class OrderBookTester {
         });
 
         final Order ask = new Order(Integer.toString(0), lmm, false, 100L, 1, 0);
-        final OrderResponse response = lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask, false);
+        final OrderResponse response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L)
@@ -565,7 +577,8 @@ public class OrderBookTester {
         });
 
         Order ask = new Order(Integer.toString(0), lmmTop, false, 100L, 30, 0);
-        OrderResponse response = lmmTopOrderBook.addOrder(ask, false);
+        lmmTopOrderBook.addOrder(ask, false);
+        OrderResponse response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
 
         // Top order should snag all the quantity of the aggressor leaving none for the LMMs
         List<MatchEvent> expectedMatches = List.of(
@@ -595,7 +608,8 @@ public class OrderBookTester {
          * still be considered top and snag all the quantity from the next aggressor
          */
         ask = new Order(Integer.toString(0), lmmTop, false, 100L, 30, 0);
-        response = lmmTopOrderBook.addOrder(ask, false);
+        lmmTopOrderBook.addOrder(ask, false);
+        response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
 
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 30, false, 0L)
@@ -622,7 +636,8 @@ public class OrderBookTester {
         });
 
         Order ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
-        OrderResponse response = lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask, false);
+        OrderResponse response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
@@ -635,7 +650,8 @@ public class OrderBookTester {
         }
 
         ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
-        response = lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask, false);
+        response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
@@ -663,7 +679,8 @@ public class OrderBookTester {
         });
 
         final Order ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
-        final OrderResponse response = lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask, false);
+        final OrderResponse response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
@@ -701,9 +718,9 @@ public class OrderBookTester {
             fifoOrderBook.addOrder(b, false);
         });
 
-        final List<OrderResponse> responses = asks.stream().map(a -> {
-            return fifoOrderBook.addOrder(a, false);
-        }).toList();
+        asks.forEach(fifoOrderBook::addOrder);
+
+        final List<OrderResponse> responses = asks.stream().map(Order::getId).map(fifoOrderBook::getLastOrderResponse).toList();
 
         final List<MatchEvent> matches = responses.stream()
                 .map(r -> r.getMatchesByPrice().entrySet().stream().map(e -> e.getValue()).findFirst())

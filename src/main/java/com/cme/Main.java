@@ -5,7 +5,7 @@ public class Main {
       /*
 		OrderBookTester orderBookTester = new OrderBookTester();
 
-		boolean success = orderBookTester.testFIFOOrderBook();
+	  boolean success = orderBookTester.testFIFOOrderBook();
       boolean success2 = orderBookTester.testLMMOrderBook();
       boolean success3 = orderBookTester.testLMMOrderBookOneLeft();
       boolean success4 = orderBookTester.testLMMWithTopOrderBook();

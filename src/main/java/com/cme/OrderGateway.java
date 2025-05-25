@@ -11,7 +11,6 @@ public class OrderGateway {
 
     final PriorityBlockingQueue<Order> orderQueue = new PriorityBlockingQueue<>(1, Comparator.comparing(Order::getTimestamp));
     final Map<Integer, OrderBook> orderBooks = new ConcurrentHashMap<>();
-    final Map<Integer, List<OrderResponse>> responses = new ConcurrentHashMap<>();
     final Map<Integer, Security> securitiesById = new HashMap<>();
 
     public OrderGateway() {
@@ -27,8 +26,7 @@ public class OrderGateway {
                     continue;
                 }
                 final OrderBook book = orderBooks.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(securitiesById.get(nextOrder.getSecurity().getId())));
-                OrderResponse response = book.addOrder(nextOrder, true);
-                responses.put(nextOrder.getId(), List.of(response));
+                book.addOrder(nextOrder, true);
             }
         };
         new Thread(queueConsumer).start();

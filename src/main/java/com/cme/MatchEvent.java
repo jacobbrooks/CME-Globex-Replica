@@ -1,5 +1,8 @@
 package com.cme;
 
+import lombok.Getter;
+
+@Getter
 public class MatchEvent {
 
     private int aggressingOrderId;
@@ -16,14 +19,6 @@ public class MatchEvent {
         this.matchQuantity = matchQuantity;
         this.aggressorBuySide = aggressorBuySide;
         this.timestamp = timestamp;
-    }
-
-    public int getRestingOrderId() {
-        return restingOrderId;
-    }
-
-    public int getMatchQuantity() {
-        return matchQuantity;
     }
 
     public String toString() {

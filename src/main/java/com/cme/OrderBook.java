@@ -12,6 +12,8 @@ public class OrderBook {
     private final Map<String, Integer> orderIdByClientOrderId;
     private final PriorityQueue<Order> stopOrders;
 
+    private final Map<Integer, List<OrderResponse>> orderResponseMap;
+
     private Optional<Order> currentTopBid;
     private Optional<Order> currentTopAsk;
 
@@ -29,20 +31,27 @@ public class OrderBook {
         this.currentTopAsk = Optional.empty();
         this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
         this.stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
+        this.orderResponseMap = new HashMap<>();
     }
 
-    public OrderResponse addOrder(Order order, boolean print) {
+    public void addOrder(Order order) {
+        addOrder(order, false);
+    }
+
+    public void addOrder(Order order, boolean print) {
         final OrderResponse response = new OrderResponse();
+        orderResponseMap.computeIfAbsent(order.getId(),k -> new ArrayList<OrderResponse>()).add(response);
+
         final TreeMap<Long, PriceLevel> matchAgainst = order.isBuy() ? asks : bids;
         final TreeMap<Long, PriceLevel> resting = order.isBuy() ? bids : asks;
 
-        Optional<PriceLevel> best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
+        Optional<PriceLevel> best = Optional.ofNullable(matchAgainst.firstEntry()).map(Map.Entry::getValue);
 
-        final long bestPrice = best.map(b -> b.getPrice()).orElse(this.lastTradedPrice);
+        final long bestPrice = best.map(PriceLevel::getPrice).orElse(this.lastTradedPrice);
 
         if (order.isStopLimit() || order.isStopWithProtection()) {
             stopOrders.add(order);
-            return response;
+            return;
         }
 
         while (best.isPresent() && !order.isFilled()) {
@@ -62,13 +71,17 @@ public class OrderBook {
             final List<MatchEvent> matches = best.get().match(order);
             response.addMatches(best.get().getPrice(), matches);
 
+            matches.forEach(m -> {
+                orderResponseMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderResponse>()).add(response);
+            });
+
             this.lastTradedPrice = best.get().getPrice();
 
             if (best.get().getTotalQuantity() == 0) {
                 matchAgainst.pollFirstEntry();
             }
 
-            best = Optional.ofNullable(matchAgainst.firstEntry()).map(e -> e.getValue());
+            best = Optional.ofNullable(matchAgainst.firstEntry()).map(Map.Entry::getValue);
 
             if (print) {
                 matches.forEach(System.out::println);
@@ -88,14 +101,14 @@ public class OrderBook {
         }
 
         if (order.isFilled()) {
-            return response;
+            return;
         }
 
         final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order.getPrice(),
                 security.getMatchingAlgorithm(), matchStepComparator));
 
         final boolean deservesTopStatus = matchStepComparator.hasStep(MatchStep.TOP)
-                && order.getPrice() == resting.firstEntry().getKey().longValue()
+                && order.getPrice() == resting.firstEntry().getKey()
                 && order.getRemainingQuantity() >= security.getTopMin()
                 && addTo.isEmpty();
 
@@ -105,7 +118,7 @@ public class OrderBook {
         orderIdByClientOrderId.put(order.getClientOrderId(), order.getId());
 
         if (!deservesTopStatus) {
-            return response;
+            return;
         }
 
         if (order.isBuy()) {
@@ -115,8 +128,14 @@ public class OrderBook {
             currentTopAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
             currentTopAsk = Optional.of(order);
         }
+    }
 
-        return response;
+    public List<OrderResponse> getOrderResponses(int orderId) {
+        return orderResponseMap.get(orderId);
+    }
+
+    public OrderResponse getLastOrderResponse(int orderId) {
+        return orderResponseMap.get(orderId).get(orderResponseMap.get(orderId).size() - 1);
     }
 
     public Order getOrder(String clientOrderId) {
@@ -125,12 +144,10 @@ public class OrderBook {
     }
 
     public List<Long> getBidPrices() {
-        return bids.keySet().stream().collect(Collectors.toList());
+        return bids.keySet().stream().toList();
     }
 
-    public List<Long> getAskPrices() {
-        return asks.keySet().stream().collect(Collectors.toList());
-    }
+    public List<Long> getAskPrices() { return asks.keySet().stream().toList(); }
 
     public void clear() {
         bids.clear();
@@ -142,9 +159,9 @@ public class OrderBook {
     }
 
     public void printBook() {
-        System.out.println("============ Bids " + bids.keySet().size() + " ==============");
+        System.out.println("============ Bids " + bids.size() + " ==============");
         bids.entrySet().stream().map(b -> b.getValue().toString()).forEach(System.out::println);
-        System.out.println("============ Asks " + asks.keySet().size() + " ==============");
+        System.out.println("============ Asks " + asks.size() + " ==============");
         asks.entrySet().stream().map(a -> a.getValue().toString()).forEach(System.out::println);
     }
 
