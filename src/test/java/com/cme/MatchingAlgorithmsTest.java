@@ -3,12 +3,14 @@ package com.cme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class OrderBookTester {
+public class MatchingAlgorithmsTest extends OrderBookTest {
 
     private final Security fifo = new Security(1, MatchingAlgorithm.FIFO);
     private final Security lmm = new Security(1, MatchingAlgorithm.LMM);
@@ -35,10 +37,16 @@ public class OrderBookTester {
     @Test
     public void testThresholdProRataWithLMMOrderBook() {
         // Pairs are {qty, lmmPercentage}
-        final List<Order> bids = List.of(new int[]{300, 0}, new int[]{15, 0}, new int[]{160, 40}).stream()
+        final List<Order> bids = Stream.of(new int[]{300, 0}, new int[]{15, 0}, new int[]{160, 40})
                 .map(pair -> {
                     hold(10);
-                    return new Order(Integer.toString(0), thresholdProRataWithLMM, true, 100L, pair[0], pair[1]);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(thresholdProRataWithLMM)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(pair[0])
+                            .lmmAllocationPercentage(pair[1])
+                            .build();
                 }).toList();
 
         bids.forEach(b -> thresholdProRataWithLMMOrderBook.addOrder(b, false));
@@ -55,9 +63,16 @@ public class OrderBookTester {
             fail(getFailMessage("TOP event 1: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
-        final Order ask = new Order(Integer.toString(0), thresholdProRataWithLMM, false, 100L, 400, 0);
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(thresholdProRataWithLMM)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(400)
+                .lmmAllocationPercentage(0)
+                .build();
+
         thresholdProRataWithLMMOrderBook.addOrder(ask, false);
-        final OrderResponse response = thresholdProRataWithLMMOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = thresholdProRataWithLMMOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         final List<MatchEvent> expectedMatches = List.of(
@@ -78,13 +93,16 @@ public class OrderBookTester {
 
     @Test
     public void testThresholdProRataOrderBook() {
-        System.out.println("\ntestThresholdProRataOrderBook()");
-        System.out.println("===================================");
-
-        final List<Order> bids = List.of(150, 8, 160).stream()
+        final List<Order> bids = Stream.of(150, 8, 160)
                 .map(qty -> {
                     hold(10);
-                    return new Order(Integer.toString(0), thresholdProRata, true, 100L, qty, 0);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(thresholdProRata)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(qty)
+                            .lmmAllocationPercentage(0)
+                            .build();
                 }).toList();
 
         bids.forEach(b -> thresholdProRataOrderBook.addOrder(b, false));
@@ -101,9 +119,16 @@ public class OrderBookTester {
             fail(getFailMessage("Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
-        final Order ask = new Order(Integer.toString(0), thresholdProRata, false, 100L, 200, 0);
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(thresholdProRata)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(200)
+                .lmmAllocationPercentage(0)
+                .build();
+
         thresholdProRataOrderBook.addOrder(ask, false);
-        final OrderResponse response = thresholdProRataOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = thresholdProRataOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         final List<MatchEvent> expectedMatches = List.of(
@@ -122,9 +147,15 @@ public class OrderBookTester {
     @Test
     public void testConfigurableNoProRataOrderBook() {
         // Pairs are {qty, lmmPercentage}
-        final List<Order> bids = List.of(new int[]{1, 0}, new int[]{59, 20}, new int[]{40, 10}).stream().map(pair -> {
+        final List<Order> bids = Stream.of(new int[]{1, 0}, new int[]{59, 20}, new int[]{40, 10}).map(pair -> {
             hold(10);
-            return new Order(Integer.toString(0), configurableNoProRata, true, 100L, pair[0], pair[1]);
+            return Order.builder().clientOrderId(Integer.toString(0))
+                    .security(configurableNoProRata)
+                    .buy(true)
+                    .price(100L)
+                    .initialQuantity(pair[0])
+                    .lmmAllocationPercentage(pair[1])
+                    .build();
         }).toList();
 
         bids.forEach(b -> configurableNoProRataOrderBook.addOrder(b, false));
@@ -141,9 +172,16 @@ public class OrderBookTester {
             fail(getFailMessage("TOP event 1: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
-        final Order ask = new Order(Integer.toString(0), configurableNoProRata, false, 100L, 50, 0);
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(configurableNoProRata)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(50)
+                .lmmAllocationPercentage(0)
+                .build();
+
         configurableNoProRataOrderBook.addOrder(ask, false);
-        final OrderResponse response = configurableNoProRataOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = configurableNoProRataOrderBook.getLastOrderResponse(ask.getId());
 
         /*
          * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
@@ -170,9 +208,15 @@ public class OrderBookTester {
     @Test
     public void testConfigurableNoFIFOOrderBook() {
         // Pairs are {qty, lmmPercentage}
-        final List<Order> bids = List.of(new int[]{1, 0}, new int[]{59, 20}, new int[]{40, 10}).stream().map(pair -> {
+        final List<Order> bids = Stream.of(new int[]{1, 0}, new int[]{59, 20}, new int[]{40, 10}).map(pair -> {
             hold(10);
-            return new Order(Integer.toString(0), configurableNoFIFO, true, 100L, pair[0], pair[1]);
+            return Order.builder().clientOrderId(Integer.toString(0))
+                    .security(configurableNoFIFO)
+                    .buy(true)
+                    .price(100L)
+                    .initialQuantity(pair[0])
+                    .lmmAllocationPercentage(pair[1])
+                    .build();
         }).toList();
 
         bids.forEach(b -> configurableNoFIFOOrderBook.addOrder(b, false));
@@ -189,9 +233,16 @@ public class OrderBookTester {
             fail(getFailMessage("TOP event 1: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
-        final Order ask = new Order(Integer.toString(0), configurableNoFIFO, false, 100L, 50, 0);
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(configurableNoFIFO)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(50)
+                .lmmAllocationPercentage(0)
+                .build();
+
         configurableNoFIFOOrderBook.addOrder(ask, false);
-        final OrderResponse response = configurableNoFIFOOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = configurableNoFIFOOrderBook.getLastOrderResponse(ask.getId());
 
         /*
          * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
@@ -222,10 +273,17 @@ public class OrderBookTester {
 
         /*
          * Unrelated to the core objective of this test, but I just want to make sure that if a price level
-         * that previously had a TOP order was completely filled, it is eligible to harbor another TOP order
+         * that previously had a TOP order was completely filled, it is eligible to contain another TOP order
          * (obviously given that no better price level exists).
          */
-        final Order oneMoreTOP = new Order(Integer.toString(0), configurableNoFIFO, true, 100L, 1, 0);
+        final Order oneMoreTOP = Order.builder().clientOrderId(Integer.toString(0))
+                .security(configurableNoFIFO)
+                .buy(true)
+                .price(100L)
+                .initialQuantity(1)
+                .lmmAllocationPercentage(0)
+                .build();
+
         configurableNoFIFOOrderBook.addOrder(oneMoreTOP, false);
 
         if (oneMoreTOP.isTop()) {
@@ -236,11 +294,17 @@ public class OrderBookTester {
     @Test
     public void testConfigurableOrderBook() {
         // Pairs are {qty, lmmPercentage}
-        List<Order> bids = List.of(new int[]{2, 0}, new int[]{51, 10},
+        List<Order> bids = Stream.of(new int[]{2, 0}, new int[]{51, 10},
                 new int[]{47, 20}, new int[]{100, 0}, new int[]{1, 0}, new int[]{1, 0},
-                new int[]{1, 0}, new int[]{1, 0}).stream().map(pair -> {
+                new int[]{1, 0}, new int[]{1, 0}).map(pair -> {
             hold(10);
-            return new Order(Integer.toString(0), configurable, true, 100L, pair[0], pair[1]);
+            return Order.builder().clientOrderId(Integer.toString(0))
+                    .security(configurable)
+                    .buy(true)
+                    .price(100L)
+                    .initialQuantity(pair[0])
+                    .lmmAllocationPercentage(pair[1])
+                    .build();
         }).toList();
 
         bids.forEach(b -> configurableOrderBook.addOrder(b, false));
@@ -257,9 +321,16 @@ public class OrderBookTester {
             fail(getFailMessage("TOP event 1: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
-        Order ask = new Order(Integer.toString(0), configurable, false, 100L, 202, 0);
+        Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(configurable)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(202)
+                .lmmAllocationPercentage(0)
+                .build();
+
         configurableOrderBook.addOrder(ask, false);
-        OrderResponse response = configurableOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = configurableOrderBook.getLastOrderResponse(ask.getId());
 
         /*
          * 1. TOP pass - order 0 should match for 2 lots -> aggressor qty = 200
@@ -302,9 +373,14 @@ public class OrderBookTester {
         }
 
         // Now let's test without LMMs
-        bids = List.of(1, 100, 30, 80, 30, 60).stream().map(qty -> {
+        bids = Stream.of(1, 100, 30, 80, 30, 60).map(qty -> {
             hold(10);
-            return new Order(Integer.toString(0), configurable, true, 200L, qty, 0);
+            return Order.builder().clientOrderId(Integer.toString(0))
+                    .security(configurable)
+                    .buy(true)
+                    .price(200L)
+                    .initialQuantity(qty)
+                    .build();
         }).toList();
 
 
@@ -322,8 +398,13 @@ public class OrderBookTester {
             fail(getFailMessage("TOP event 2: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
+        ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(configurable)
+                .buy(false)
+                .price(200L)
+                .initialQuantity(8)
+                .build();
 
-        ask = new Order(Integer.toString(0), configurable, false, 200L, 8, 0);
         configurableOrderBook.addOrder(ask, false);
         response = configurableOrderBook.getLastOrderResponse(ask.getId());
 
@@ -355,10 +436,15 @@ public class OrderBookTester {
 
     @Test
     public void testAllocationOrderBook() {
-        final List<Order> bids = List.of(2, 56, 42).stream()
+        final List<Order> bids = Stream.of(2, 56, 42)
                 .map(qty -> {
                     hold(10);
-                    return new Order(Integer.toString(0), allocation, true, 100L, qty, 0);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(allocation)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(qty)
+                            .build();
                 }).toList();
 
         bids.forEach(b -> allocationOrderBook.addOrder(b, false));
@@ -375,9 +461,15 @@ public class OrderBookTester {
             fail(getFailMessage("Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
-        Order ask = new Order(Integer.toString(0), allocation, false, 100L, 50, 0);
+        Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(allocation)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(50)
+                .build();
+
         allocationOrderBook.addOrder(ask, false);
-        OrderResponse response = allocationOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = allocationOrderBook.getLastOrderResponse(ask.getId());
 
         List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         List<MatchEvent> expectedMatches = List.of(
@@ -392,7 +484,13 @@ public class OrderBookTester {
         }
 
         // There should now be 50 resting quantity on the book, let's hit it with one more aggressor
-        ask = new Order(Integer.toString(0), allocation, false, 100L, 50, 0);
+        ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(allocation)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(50)
+                .build();
+
         allocationOrderBook.addOrder(ask, false);
         response = allocationOrderBook.getLastOrderResponse(ask.getId());
         matches = response.getMatchesByPrice().get(100L);
@@ -411,17 +509,28 @@ public class OrderBookTester {
         System.out.println("\ntestProRataOrderBook()");
         System.out.println("===================================");
 
-        final List<Order> bids = List.of(2, 42, 56).stream()
+        final List<Order> bids = Stream.of(2, 42, 56)
                 .map(qty -> {
                     hold(10);
-                    return new Order(Integer.toString(0), proRata, true, 100L, qty, 0);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(proRata)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(qty)
+                            .build();
                 }).toList();
 
         bids.forEach(b -> proRataOrderBook.addOrder(b, false));
 
-        Order ask = new Order(Integer.toString(0), proRata, false, 100L, 50, 0);
+        Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(proRata)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(50)
+                .build();
+
         proRataOrderBook.addOrder(ask, false);
-        OrderResponse response = proRataOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = proRataOrderBook.getLastOrderResponse(ask.getId());
 
         List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         List<MatchEvent> expectedMatches = List.of(
@@ -434,7 +543,13 @@ public class OrderBookTester {
             fail(getFailMessage("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
         }
 
-        ask = new Order(Integer.toString(0), proRata, false, 100L, 50, 0);
+        ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(proRata)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(50)
+                .build();
+
         proRataOrderBook.addOrder(ask, false);
         response = proRataOrderBook.getLastOrderResponse(ask.getId());
 
@@ -453,10 +568,16 @@ public class OrderBookTester {
     @Test
     public void testLMMWithTopOrderBook() {
         // Top order should be the first to market
-        final List<Order> bids = List.of(0, 10).stream()
+        final List<Order> bids = Stream.of(0, 10)
                 .map(p -> {
                     hold(10);
-                    return new Order(Integer.toString(0), lmmTop, true, 100L, 10, p);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(lmmTop)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(10)
+                            .lmmAllocationPercentage(p)
+                            .build();
                 }).toList();
 
         bids.forEach(b -> lmmTopOrderBook.addOrder(b, false));
@@ -477,10 +598,16 @@ public class OrderBookTester {
          * First to best the market should be the new top, so the first order at this 200
          * price level should dethrone the original top order
          */
-        final List<Order> higherBids = List.of(0, 10, 20, 0).stream()
+        final List<Order> higherBids = Stream.of(0, 10, 20, 0)
                 .map(p -> {
                     hold(10);
-                    return new Order(Integer.toString(0), lmmTop, true, 200L, 10, p);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(lmmTop)
+                            .buy(true)
+                            .price(200L)
+                            .initialQuantity(10)
+                            .lmmAllocationPercentage(p)
+                            .build();
                 }).toList();
 
         higherBids.forEach(o -> {
@@ -496,7 +623,12 @@ public class OrderBookTester {
             fail(getFailMessage("Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
         }
 
-        final Order ask = new Order(Integer.toString(0), lmmTop, false, 200L, 40, 0);
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(lmmTop)
+                .buy(false)
+                .price(200L)
+                .initialQuantity(40)
+                .build();
 
         /*
          * We expect the $200x40 ask to first match against the TOP order for 10 lots. (30 lots remain)
@@ -513,7 +645,7 @@ public class OrderBookTester {
          * then lastly a FIFO match the last order for the all 10 lots.
          */
         lmmTopOrderBook.addOrder(ask, false);
-        final OrderResponse response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
         List<MatchEvent> matches = response.getMatchesByPrice().get(200L);
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), higherBids.get(0).getId(), 200L, 10, false, 0L),
@@ -533,19 +665,31 @@ public class OrderBookTester {
     public void testLMMOrderBookOneLeft() {
         lmmOrderBook.clear();
 
-        final List<Order> bids = List.of(50, 60).stream()
+        final List<Order> bids = Stream.of(50, 60)
                 .map(p -> {
                     hold(10);
-                    return new Order(Integer.toString(0), lmm, true, 100L, 10, p);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(lmm)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(10)
+                            .lmmAllocationPercentage(p)
+                            .build();
                 }).toList();
 
         bids.forEach(o -> {
             lmmOrderBook.addOrder(o, false);
         });
 
-        final Order ask = new Order(Integer.toString(0), lmm, false, 100L, 1, 0);
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(lmm)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(1)
+                .build();
+
         lmmOrderBook.addOrder(ask, false);
-        final OrderResponse response = lmmOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L)
@@ -553,8 +697,8 @@ public class OrderBookTester {
 
         final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
         final boolean success = matches.size() == expectedMatches.size()
-                && !IntStream.range(0, matches.size())
-                .anyMatch(i -> matches.get(i).getRestingOrderId() != expectedMatches.get(i).getRestingOrderId()
+                && IntStream.range(0, matches.size())
+                .noneMatch(i -> matches.get(i).getRestingOrderId() != expectedMatches.get(i).getRestingOrderId()
                         || matches.get(i).getMatchQuantity() != expectedMatches.get(i).getMatchQuantity());
 
         if (!success) {
@@ -566,19 +710,31 @@ public class OrderBookTester {
     public void testLMMWithTopOrderBookMultipleAggressors() {
         lmmTopOrderBook.clear();
 
-        final List<Order> bids = List.of(0, 20, 80).stream()
+        final List<Order> bids = Stream.of(0, 20, 80)
                 .map(p -> {
                     hold(10);
-                    return new Order(Integer.toString(0), lmmTop, true, 100L, 100, p);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(lmmTop)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(100)
+                            .lmmAllocationPercentage(p)
+                            .build();
                 }).toList();
 
         bids.forEach(o -> {
             lmmTopOrderBook.addOrder(o, false);
         });
 
-        Order ask = new Order(Integer.toString(0), lmmTop, false, 100L, 30, 0);
+        Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(lmmTop)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(30)
+                .build();
+
         lmmTopOrderBook.addOrder(ask, false);
-        OrderResponse response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
 
         // Top order should snag all the quantity of the aggressor leaving none for the LMMs
         List<MatchEvent> expectedMatches = List.of(
@@ -607,7 +763,13 @@ public class OrderBookTester {
          * Since top order was not completely filled (70 lots left), it should
          * still be considered top and snag all the quantity from the next aggressor
          */
-        ask = new Order(Integer.toString(0), lmmTop, false, 100L, 30, 0);
+        ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(lmmTop)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(30)
+                .build();
+
         lmmTopOrderBook.addOrder(ask, false);
         response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
 
@@ -625,19 +787,31 @@ public class OrderBookTester {
     public void testLMMOrderBookMultipleAggressors() {
         lmmOrderBook.clear();
 
-        final List<Order> bids = List.of(0, 20, 80).stream()
+        final List<Order> bids = Stream.of(0, 20, 80)
                 .map(p -> {
                     hold(10);
-                    return new Order(Integer.toString(0), lmm, true, 100L, 100, p);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(lmm)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(100)
+                            .lmmAllocationPercentage(p)
+                            .build();
                 }).toList();
 
         bids.forEach(o -> {
             lmmOrderBook.addOrder(o, false);
         });
 
-        Order ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
+        Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(lmm)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(30)
+                .build();
+
         lmmOrderBook.addOrder(ask, false);
-        OrderResponse response = lmmOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
@@ -649,7 +823,13 @@ public class OrderBookTester {
             fail(getFailMessage("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
         }
 
-        ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
+        ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(lmm)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(30)
+                .build();
+
         lmmOrderBook.addOrder(ask, false);
         response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
@@ -668,19 +848,31 @@ public class OrderBookTester {
     public void testLMMOrderBook() {
         lmmOrderBook.clear();
 
-        final List<Order> bids = List.of(0, 20, 80).stream()
+        final List<Order> bids = Stream.of(0, 20, 80)
                 .map(p -> {
                     hold(10);
-                    return new Order(Integer.toString(0), lmm, true, 100L, 10, p);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(lmm)
+                            .buy(true)
+                            .price(100L)
+                            .initialQuantity(10)
+                            .lmmAllocationPercentage(p)
+                            .build();
                 }).toList();
 
         bids.forEach(o -> {
             lmmOrderBook.addOrder(o, false);
         });
 
-        final Order ask = new Order(Integer.toString(0), lmm, false, 100L, 30, 0);
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0))
+                .security(lmm)
+                .buy(false)
+                .price(100L)
+                .initialQuantity(30)
+                .build();
+
         lmmOrderBook.addOrder(ask, false);
-        final OrderResponse response = lmmOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = lmmOrderBook.getLastOrderResponse(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
@@ -697,6 +889,7 @@ public class OrderBookTester {
 
     @Test
     public void testFIFOOrderBook() {
+        fifoOrderBook.clear();
         // 5 bid price levels, with the 200 price level having multiple orders (to test time priority)
         final List<Long> bidPrices = List.of(100L, 150L, 200L, 200L, 250L, 300L);
         final List<Long> askPrices = List.of(100L, 150L, 200L, 250L, 300L);
@@ -704,13 +897,23 @@ public class OrderBookTester {
         final List<Order> bids = bidPrices.stream()
                 .map(p -> {
                     hold(10); // So that each order has slightly different timestamps
-                    return new Order(Integer.toString(0), fifo, true, p, 10, 0);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(fifo)
+                            .buy(true)
+                            .price(p)
+                            .initialQuantity(10)
+                            .build();
                 }).toList();
 
         final List<Order> asks = askPrices.stream()
                 .map(p -> {
                     hold(10); // So that each order has slightly different timestamps
-                    return new Order(Integer.toString(0), fifo, false, p, 10, 0);
+                    return Order.builder().clientOrderId(Integer.toString(0))
+                            .security(fifo)
+                            .buy(false)
+                            .price(p)
+                            .initialQuantity(10)
+                            .build();
                 }).toList();
 
         // Add bids
@@ -720,11 +923,11 @@ public class OrderBookTester {
 
         asks.forEach(fifoOrderBook::addOrder);
 
-        final List<OrderResponse> responses = asks.stream().map(Order::getId).map(fifoOrderBook::getLastOrderResponse).toList();
+        final List<OrderUpdate> responses = asks.stream().map(Order::getId).map(fifoOrderBook::getLastOrderResponse).toList();
 
         final List<MatchEvent> matches = responses.stream()
-                .map(r -> r.getMatchesByPrice().entrySet().stream().map(e -> e.getValue()).findFirst())
-                .filter(opt -> opt.isPresent())
+                .map(r -> r.getMatchesByPrice().entrySet().stream().map(Map.Entry::getValue).findFirst())
+                .filter(Optional::isPresent)
                 .map(opt -> opt.get().get(0))
                 .toList();
 
@@ -747,51 +950,19 @@ public class OrderBookTester {
         final List<Long> actualAsks = fifoOrderBook.getAskPrices();
 
         if (!(actualBids.size() == expectedBids.size() && actualAsks.size() == expectedAsks.size())) {
-            fail(getFailMessage("bids", expectedBids.stream().map(l -> l.toString()).toList(), actualBids.stream().map(l -> l.toString()).toList()));
-            fail(getFailMessage("asks", expectedAsks.stream().map(l -> l.toString()).toList(), actualAsks.stream().map(l -> l.toString()).toList()));
+            fail(getFailMessage("bids", expectedBids.stream().map(Object::toString).toList(), actualBids.stream().map(Object::toString).toList()));
+            fail(getFailMessage("asks", expectedAsks.stream().map(Object::toString).toList(), actualAsks.stream().map(Object::toString).toList()));
 
         }
 
         if (IntStream.range(0, expectedBids.size()).anyMatch(i -> expectedBids.get(i) != actualBids.get(i).longValue())) {
-            fail(getFailMessage("bids", expectedBids.stream().map(l -> l.toString()).toList(), actualBids.stream().map(l -> l.toString()).toList()));
-            fail(getFailMessage("asks", expectedAsks.stream().map(l -> l.toString()).toList(), actualAsks.stream().map(l -> l.toString()).toList()));
+            fail(getFailMessage("bids", expectedBids.stream().map(Object::toString).toList(), actualBids.stream().map(Object::toString).toList()));
+            fail(getFailMessage("asks", expectedAsks.stream().map(Object::toString).toList(), actualAsks.stream().map(Object::toString).toList()));
         }
 
         if (IntStream.range(0, expectedAsks.size()).anyMatch(i -> expectedAsks.get(i) != actualAsks.get(i).longValue())) {
-            fail(getFailMessage("bids", expectedBids.stream().map(l -> l.toString()).toList(), actualBids.stream().map(l -> l.toString()).toList()));
-            fail(getFailMessage("asks", expectedAsks.stream().map(l -> l.toString()).toList(), actualAsks.stream().map(l -> l.toString()).toList()));
+            fail(getFailMessage("bids", expectedBids.stream().map(Object::toString).toList(), actualBids.stream().map(Object::toString).toList()));
+            fail(getFailMessage("asks", expectedAsks.stream().map(Object::toString).toList(), actualAsks.stream().map(Object::toString).toList()));
         }
     }
-
-    private String getFailMessage(String message) {
-        final StringBuilder builder = new StringBuilder();
-        builder.append(message + "\n");
-        return builder.toString();
-    }
-
-    private String getFailMessage(String criteria, List<String> expected, List<String> actual) {
-        final StringBuilder builder = new StringBuilder();
-        builder.append("Expected " + criteria + ": [\n");
-        expected.forEach(b -> builder.append("  " + b + ",\n"));
-        builder.append("], \nActual " + criteria + ": [\n");
-        actual.forEach(b -> builder.append("  " + b + ", \n"));
-        builder.append("]\n\n");
-        return builder.toString();
-    }
-
-    private boolean equalMatches(List<MatchEvent> expected, List<MatchEvent> actual) {
-        return actual.size() == expected.size()
-                && !IntStream.range(0, actual.size())
-                .anyMatch(i -> actual.get(i).getRestingOrderId() != expected.get(i).getRestingOrderId()
-                        || actual.get(i).getMatchQuantity() != expected.get(i).getMatchQuantity());
-    }
-
-    private void hold(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
 }

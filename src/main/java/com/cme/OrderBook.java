@@ -1,7 +1,6 @@
 package com.cme;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class OrderBook {
 
@@ -12,7 +11,7 @@ public class OrderBook {
     private final Map<String, Integer> orderIdByClientOrderId;
     private final PriorityQueue<Order> stopOrders;
 
-    private final Map<Integer, List<OrderResponse>> orderResponseMap;
+    private final Map<Integer, List<OrderUpdate>> orderResponseMap;
 
     private Optional<Order> currentTopBid;
     private Optional<Order> currentTopAsk;
@@ -38,9 +37,21 @@ public class OrderBook {
         addOrder(order, false);
     }
 
+    /*
+     * To be implemented
+     */
+    private boolean isValidOrder(Order order) {
+        return true;
+    }
+
     public void addOrder(Order order, boolean print) {
-        final OrderResponse response = new OrderResponse();
-        orderResponseMap.computeIfAbsent(order.getId(),k -> new ArrayList<OrderResponse>()).add(response);
+        final OrderUpdate update = new OrderUpdate(OrderStatus.New);
+        orderResponseMap.computeIfAbsent(order.getId(),k -> new ArrayList<OrderUpdate>()).add(update);
+
+        if(!isValidOrder(order)) {
+            update.setStatus(OrderStatus.Reject);
+            return;
+        }
 
         final TreeMap<Long, PriceLevel> matchAgainst = order.isBuy() ? asks : bids;
         final TreeMap<Long, PriceLevel> resting = order.isBuy() ? bids : asks;
@@ -69,10 +80,11 @@ public class OrderBook {
             }
 
             final List<MatchEvent> matches = best.get().match(order);
-            response.addMatches(best.get().getPrice(), matches);
+            update.addMatches(best.get().getPrice(), matches);
 
             matches.forEach(m -> {
-                orderResponseMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderResponse>()).add(response);
+                //final OrderUpdate fillNotice = new OrderUpdate(OrderStatus.Filled);
+                orderResponseMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(update);
             });
 
             this.lastTradedPrice = best.get().getPrice();
@@ -128,13 +140,20 @@ public class OrderBook {
             currentTopAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
             currentTopAsk = Optional.of(order);
         }
+
+        // Trigger any stop orders
+        stopOrders.stream().filter(o -> this.lastTradedPrice >= o.getTriggerPrice())
+                .map(o -> o.toLimitOrder(o))
+                .forEach(this::addOrder);
+
+        stopOrders.removeIf(o -> this.lastTradedPrice >= o.getTriggerPrice());
     }
 
-    public List<OrderResponse> getOrderResponses(int orderId) {
+    public List<OrderUpdate> getOrderResponses(int orderId) {
         return orderResponseMap.get(orderId);
     }
 
-    public OrderResponse getLastOrderResponse(int orderId) {
+    public OrderUpdate getLastOrderResponse(int orderId) {
         return orderResponseMap.get(orderId).get(orderResponseMap.get(orderId).size() - 1);
     }
 
@@ -154,15 +173,17 @@ public class OrderBook {
         asks.clear();
         orderIdByClientOrderId.clear();
         priceLevelByOrderId.clear();
+        stopOrders.clear();
+        orderResponseMap.clear();
         currentTopBid = Optional.empty();
         currentTopAsk = Optional.empty();
     }
 
     public void printBook() {
         System.out.println("============ Bids " + bids.size() + " ==============");
-        bids.entrySet().stream().map(b -> b.getValue().toString()).forEach(System.out::println);
+        bids.values().stream().map(PriceLevel::toString).forEach(System.out::println);
         System.out.println("============ Asks " + asks.size() + " ==============");
-        asks.entrySet().stream().map(a -> a.getValue().toString()).forEach(System.out::println);
+        asks.values().stream().map(PriceLevel::toString).forEach(System.out::println);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.cme;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.util.*;
@@ -23,8 +24,7 @@ public class PriceLevel {
         this.ordersById = new HashMap<Integer, Order>();
         this.price = price;
         this.ordersByMatchStep = new ArrayList<>();
-        IntStream.range(0, matchStepComparator.getNumberOfSteps())
-                .forEach(i -> ordersByMatchStep.add(new PriorityQueue<OrderContainer>()));
+        IntStream.range(0, matchStepComparator.getNumberOfSteps()).forEach(i -> ordersByMatchStep.add(new PriorityQueue<OrderContainer>()));
     }
 
     public List<MatchEvent> match(Order order) {
@@ -128,7 +128,7 @@ public class PriceLevel {
         }
         if (matchStepComparator.hasStep(MatchStep.LMM) && match.isLMMAllocatable()) {
             return (int) Math.floor((double) order.getCurrentStepInitialQuantity()
-                    * match.getLMMAllocationPercentage() / 100);
+                    * match.getLmmAllocationPercentage() / 100);
         }
         return order.getRemainingQuantity();
     }
@@ -145,7 +145,7 @@ public class PriceLevel {
 
         /*
          * We only need to do this for pure ProRata algorithm because it is the first match step.
-         * Otherwise it is handled by prepareMatchForNextStep()
+         * Otherwise, it is handled by prepareMatchForNextStep()
          */
         if (matchingAlgorithm == MatchingAlgorithm.ProRata) {
             updateProrationsAndResort();
@@ -157,7 +157,7 @@ public class PriceLevel {
         final PriorityQueue<OrderContainer> temp = new PriorityQueue<>();
         temp.addAll(ordersByMatchStep.get(proRataMatchStep));
         ordersByMatchStep.get(proRataMatchStep).clear();
-        temp.stream().forEach(o -> {
+        temp.forEach(o -> {
             o.getOrder().updateProration(totalQuantity);
             ordersByMatchStep.get(proRataMatchStep).add(o);
         });
@@ -206,17 +206,12 @@ public class PriceLevel {
                 .trim() + "}";
     }
 
+    @AllArgsConstructor
     private static final class OrderContainer implements Comparable<OrderContainer> {
         @Getter
         private final Order order;
         private final MatchStepComparator matchStepComparator;
         private final int matchStepIndex;
-
-        public OrderContainer(Order order, MatchStepComparator matchStepComparator, int matchStepIndex) {
-            this.order = order;
-            this.matchStepComparator = matchStepComparator;
-            this.matchStepIndex = matchStepIndex;
-        }
 
         public int getMatchStep() {
             return matchStepIndex;

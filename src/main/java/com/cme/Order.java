@@ -1,24 +1,30 @@
 package com.cme;
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Getter
+@Builder
 public class Order {
 
     private static final AtomicInteger NEXT_ID = new AtomicInteger(0);
 
-    private final int id;
+    private final int id = NEXT_ID.incrementAndGet();
+    private final long timestamp = System.currentTimeMillis();
+
+    @Builder.Default
+    private final OrderType orderType = OrderType.Limit;
+
+    private final int originId;
     private final String clientOrderId;
     private final Security security;
-    private final long timestamp;
     private final long protectionPoints;
     private final long triggerPrice;
     private final int initialQuantity;
     private final boolean buy;
-    private final OrderType orderType;
     private final OrderDuration orderDuration;
 
     @Setter
@@ -35,36 +41,11 @@ public class Order {
     private boolean proRataAllocated;
     private boolean markedForLeveling;
 
-    public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int lmmAllocationPercentage) {
-        this.id = NEXT_ID.incrementAndGet();
-        this.clientOrderId = clientOrderId;
-        this.security = security;
-        this.timestamp = System.currentTimeMillis();
-        this.buy = buy;
-        this.price = price;
-        this.initialQuantity = initialQuantity;
-        this.lmmAllocationPercentage = lmmAllocationPercentage;
-        this.currentStepInitialQuantity = initialQuantity;
-        this.orderType = OrderType.Limit;
-        this.orderDuration = OrderDuration.Day;
-        this.protectionPoints = 0;
-        this.triggerPrice = 0;
-    }
-
-    public Order(String clientOrderId, Security security, boolean buy, long price, int initialQuantity, int lmmAllocationPercentage, OrderType orderType, OrderDuration orderDuration, long protectionPoints, long triggerPrice) {
-        this.id = NEXT_ID.incrementAndGet();
-        this.clientOrderId = clientOrderId;
-        this.security = security;
-        this.timestamp = System.currentTimeMillis();
-        this.buy = buy;
-        this.price = price;
-        this.initialQuantity = initialQuantity;
-        this.lmmAllocationPercentage = lmmAllocationPercentage;
-        this.currentStepInitialQuantity = initialQuantity;
-        this.orderType = orderType;
-        this.orderDuration = orderDuration;
-        this.protectionPoints = protectionPoints;
-        this.triggerPrice = triggerPrice;
+    public static class OrderBuilder {
+        public OrderBuilder initialQuantity(int initialQuantity) {
+            this.currentStepInitialQuantity = this.initialQuantity = initialQuantity;
+            return this;
+        }
     }
 
     public void fill(int quantity, MatchStep matchStep) {
@@ -105,12 +86,19 @@ public class Order {
                 * (double) getRemainingQuantity()) / 100);
     }
 
-    public void markForLeveling() {
-        this.markedForLeveling = true;
+    public Order toLimitOrder(Order stopOrder) {
+        return builder().originId(stopOrder.getId())
+                .clientOrderId(stopOrder.getClientOrderId())
+                .security(stopOrder.getSecurity())
+                .buy(stopOrder.isBuy())
+                .price(stopOrder.getPrice())
+                .initialQuantity(stopOrder.getInitialQuantity())
+                .lmmAllocationPercentage(stopOrder.getLmmAllocationPercentage())
+                .build();
     }
 
-    public int getLMMAllocationPercentage() {
-        return lmmAllocationPercentage;
+    public void markForLeveling() {
+        this.markedForLeveling = true;
     }
 
     public int getRemainingQuantity() {
@@ -119,10 +107,6 @@ public class Order {
 
     public boolean isFilled() {
         return getRemainingQuantity() == 0;
-    }
-
-    public boolean isLMMAllocated() {
-        return lmmAllocated;
     }
 
     public boolean isLMMAllocatable() {

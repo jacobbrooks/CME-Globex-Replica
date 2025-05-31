@@ -1,25 +1,18 @@
 package com.cme;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
+@AllArgsConstructor
 public class MatchEvent {
 
-    private int aggressingOrderId;
-    private int restingOrderId;
-    private long matchPrice;
-    private int matchQuantity;
-    private boolean aggressorBuySide;
-    private long timestamp;
-
-    public MatchEvent(int aggressingOrderId, int restingOrderId, long matchPrice, int matchQuantity, boolean aggressorBuySide, long timestamp) {
-        this.aggressingOrderId = aggressingOrderId;
-        this.restingOrderId = restingOrderId;
-        this.matchPrice = matchPrice;
-        this.matchQuantity = matchQuantity;
-        this.aggressorBuySide = aggressorBuySide;
-        this.timestamp = timestamp;
-    }
+    private final int aggressingOrderId;
+    private final int restingOrderId;
+    private final long matchPrice;
+    private final int matchQuantity;
+    private final boolean aggressorBuySide;
+    private final long timestamp;
 
     public String toString() {
         final String aggressor = aggressorBuySide ? "buy" : "sell";
