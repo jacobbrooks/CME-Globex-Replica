@@ -16,7 +16,7 @@ public class Order {
     private final long timestamp = System.currentTimeMillis();
 
     @Builder.Default
-    private final OrderType orderType = OrderType.Limit;
+    private final OrderDuration orderDuration = OrderDuration.Day;
 
     private final int originId;
     private final String clientOrderId;
@@ -25,18 +25,19 @@ public class Order {
     private final long triggerPrice;
     private final int initialQuantity;
     private final boolean buy;
-    private final OrderDuration orderDuration;
 
     @Setter
+    @Builder.Default
+    private OrderType orderType = OrderType.Limit;
+    @Setter
     private long price;
+    @Setter
+    private boolean top;
     private int lmmAllocationPercentage;
     private int filledQuantity;
     private int currentStepInitialQuantity;
     private int remainingSplitFIFOQuantity;
     private double proration;
-
-    @Setter
-    private boolean top;
     private boolean lmmAllocated;
     private boolean proRataAllocated;
     private boolean markedForLeveling;
@@ -84,17 +85,6 @@ public class Order {
     public void setInitialSplitFIFOQuantity() {
         this.remainingSplitFIFOQuantity = (int) Math.round((security.getSplitPercentage()
                 * (double) getRemainingQuantity()) / 100);
-    }
-
-    public Order toLimitOrder(Order stopOrder) {
-        return builder().originId(stopOrder.getId())
-                .clientOrderId(stopOrder.getClientOrderId())
-                .security(stopOrder.getSecurity())
-                .buy(stopOrder.isBuy())
-                .price(stopOrder.getPrice())
-                .initialQuantity(stopOrder.getInitialQuantity())
-                .lmmAllocationPercentage(stopOrder.getLmmAllocationPercentage())
-                .build();
     }
 
     public void markForLeveling() {

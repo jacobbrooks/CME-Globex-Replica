@@ -8,18 +8,18 @@ import java.util.List;
 import java.util.Map;
 
 @Getter
+@Setter
 public class OrderUpdate {
 
-    @Setter
+    private final Map<Long, List<MatchEvent>> matchesByPrice = new HashMap<>();
+
     private OrderStatus status;
+    private OrderType type;
+    private int remainingQuantity;
 
-    private final Map<Long, List<MatchEvent>> matchesByPrice;
-    private final Map<Integer, Integer> remainingQtyByOrderId;
-
-    public OrderUpdate(OrderStatus status) {
+    public OrderUpdate(OrderStatus status, OrderType type) {
         this.status = status;
-        matchesByPrice = new HashMap<>();
-        remainingQtyByOrderId = new HashMap<>();
+        this.type = type;
     }
 
     public void addMatches(long price, List<MatchEvent> matchEvents) {

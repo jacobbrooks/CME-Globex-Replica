@@ -221,7 +221,6 @@ public class PriceLevel {
         public int compareTo(OrderContainer other) {
             return matchStepComparator.compare(order, other.getOrder(), matchStepIndex);
         }
-
     }
 
 }
