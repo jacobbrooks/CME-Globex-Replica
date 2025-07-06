@@ -11,7 +11,7 @@ public class OrderBook {
     private final TreeMap<Long, PriceLevel> asks = new TreeMap<>();
     private final Map<Integer, PriceLevel> priceLevelByOrderId = new HashMap<>();
     private final Map<String, Integer> orderIdByClientOrderId = new HashMap<>();
-    private final Map<Integer, List<OrderUpdate>> orderResponseMap = new HashMap<>();
+    private final Map<Integer, List<OrderUpdate>> orderUpdateMap = new HashMap<>();
     private final PriorityQueue<Order> stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
 
     private Optional<Order> currentTopBid = Optional.empty();
@@ -37,7 +37,7 @@ public class OrderBook {
 
     public void addOrder(Order order, boolean print) {
         final OrderUpdate ack = new OrderUpdate(OrderStatus.New, order.getOrderType());
-        orderResponseMap.computeIfAbsent(order.getId(),k -> new ArrayList<OrderUpdate>()).add(ack);
+        orderUpdateMap.computeIfAbsent(order.getId(), k -> new ArrayList<OrderUpdate>()).add(ack);
 
         if(!isValidOrder(order)) {
             ack.setStatus(OrderStatus.Reject);
@@ -52,9 +52,12 @@ public class OrderBook {
         final long bestPrice = best.map(PriceLevel::getPrice).orElse(this.lastTradedPrice);
 
         if (order.isStopLimit() || order.isStopWithProtection()) {
+            ack.setType(OrderType.StopLimit);
             stopOrders.add(order);
             return;
         }
+
+        boolean lastTradedPriceUpdated = false;
 
         while (best.isPresent() && !order.isFilled()) {
             if (!isMatch(order, best.get(), bestPrice)) {
@@ -62,21 +65,22 @@ public class OrderBook {
             }
 
             this.lastTradedPrice = best.get().getPrice();
+            lastTradedPriceUpdated = true;
 
             final List<MatchEvent> matches = best.get().match(order);
 
-            final OrderUpdate aggressorFillNotice = new OrderUpdate(OrderStatus.Filled, order.getOrderType());
+            final OrderUpdate aggressorFillNotice = new OrderUpdate(order.isFilled() ? OrderStatus.CompleteFill : OrderStatus.PartialFill, order.getOrderType());
             aggressorFillNotice.addMatches(lastTradedPrice, matches);
             aggressorFillNotice.setRemainingQuantity(order.getRemainingQuantity());
-            orderResponseMap.get(order.getId()).add(aggressorFillNotice);
+            orderUpdateMap.get(order.getId()).add(aggressorFillNotice);
 
             matches.forEach(m -> {
-                final OrderUpdate restingFillNotice = new OrderUpdate(OrderStatus.Filled, order.getOrderType());
                 final int remainingQty = Optional.ofNullable(priceLevelByOrderId.get(m.getRestingOrderId()).getOrder(m.getRestingOrderId()))
                         .map(Order::getRemainingQuantity).orElse(0);
+                final OrderUpdate restingFillNotice = new OrderUpdate(remainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, order.getOrderType());
                 restingFillNotice.addMatches(lastTradedPrice, List.of(m));
                 restingFillNotice.setRemainingQuantity(remainingQty);
-                orderResponseMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(restingFillNotice);
+                orderUpdateMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(restingFillNotice);
             });
 
             if (best.get().getTotalQuantity() == 0) {
@@ -84,6 +88,11 @@ public class OrderBook {
             }
 
             best = Optional.ofNullable(matchAgainst.firstEntry()).map(Map.Entry::getValue);
+
+            if(order.isMarketLimit()) {
+                order.setOrderType(OrderType.Limit);
+                order.setPrice(this.lastTradedPrice);
+            }
 
             if (print) {
                 matches.forEach(System.out::println);
@@ -127,14 +136,25 @@ public class OrderBook {
             }
         }
 
-        final List<Order> stopOrdersToTrigger = stopOrders.stream().filter(o -> this.lastTradedPrice >= o.getTriggerPrice()).toList();
+        if(!lastTradedPriceUpdated) {
+            return;
+        }
+
+        final List<Order> stopOrdersToTrigger = stopOrders.stream().filter(this::shouldTriggerStopOrder).toList();
         stopOrders.removeAll(stopOrdersToTrigger);
 
         // Trigger any stop orders
         stopOrdersToTrigger.forEach(o -> {
+            if(o.isStopWithProtection()) {
+                o.setPrice(o.isBuy() ? o.getTriggerPrice() + o.getProtectionPoints() : o.getTriggerPrice() - o.getProtectionPoints());
+            }
             o.setOrderType(OrderType.Limit);
             addOrder(o);
         });
+    }
+
+    private boolean shouldTriggerStopOrder(Order order) {
+        return order.isBuy() ? this.lastTradedPrice >= order.getTriggerPrice() : this.lastTradedPrice <= order.getTriggerPrice();
     }
 
     private static boolean isMatch(Order order, PriceLevel best, long bestPrice) {
@@ -147,12 +167,12 @@ public class OrderBook {
                 best.getPrice() >= order.getPrice());
     }
 
-    public List<OrderUpdate> getOrderResponses(int orderId) {
-        return orderResponseMap.get(orderId);
+    public List<OrderUpdate> getOrderUpdates(int orderId) {
+        return orderUpdateMap.get(orderId);
     }
 
-    public OrderUpdate getLastOrderResponse(int orderId) {
-        return orderResponseMap.get(orderId).get(orderResponseMap.get(orderId).size() - 1);
+    public OrderUpdate getLastOrderUpdate(int orderId) {
+        return orderUpdateMap.get(orderId).get(orderUpdateMap.get(orderId).size() - 1);
     }
 
     public Order getOrder(String clientOrderId) {
@@ -172,7 +192,7 @@ public class OrderBook {
         orderIdByClientOrderId.clear();
         priceLevelByOrderId.clear();
         stopOrders.clear();
-        orderResponseMap.clear();
+        orderUpdateMap.clear();
         currentTopBid = Optional.empty();
         currentTopAsk = Optional.empty();
     }

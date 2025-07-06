@@ -3,7 +3,6 @@ package com.cme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -72,9 +71,9 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         thresholdProRataWithLMMOrderBook.addOrder(ask, false);
-        final OrderUpdate response = thresholdProRataWithLMMOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = thresholdProRataWithLMMOrderBook.getLastOrderUpdate(ask.getId());
 
-        final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        final List<MatchEvent> matches = response.getMatches();
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 250, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 60, false, 0L),
@@ -128,9 +127,9 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         thresholdProRataOrderBook.addOrder(ask, false);
-        final OrderUpdate response = thresholdProRataOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = thresholdProRataOrderBook.getLastOrderUpdate(ask.getId());
 
-        final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        final List<MatchEvent> matches = response.getMatches();
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 100, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 73, false, 0L),
@@ -181,7 +180,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         configurableNoProRataOrderBook.addOrder(ask, false);
-        final OrderUpdate response = configurableNoProRataOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = configurableNoProRataOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
          * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
@@ -190,7 +189,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
          * Split FIFO Pass - Order 1 has 50 remaining qty and is the earliest in the book, and
          *    therefore receives all 100% * 36 remaining aggressor lots
          */
-        final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        final List<MatchEvent> matches = response.getMatches();
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 9, false, 0L),
@@ -242,7 +241,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         configurableNoFIFOOrderBook.addOrder(ask, false);
-        final OrderUpdate response = configurableNoFIFOOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = configurableNoFIFOOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
          * TOP pass - Order 0 is filled for its 1 lot - aggressor qty = 49
@@ -255,7 +254,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
          *    (36 / 86) * 36 = 15 lots, aggressor qty = 1
          * FIFO pass - Order 1 is the earliest order in the book and is assigned the last aggressor lot
          */
-        final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        final List<MatchEvent> matches = response.getMatches();
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 9, false, 0L),
@@ -330,7 +329,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         configurableOrderBook.addOrder(ask, false);
-        OrderUpdate response = configurableOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = configurableOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
          * 1. TOP pass - order 0 should match for 2 lots -> aggressor qty = 200
@@ -351,7 +350,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
          * 9. Leveling pass - Order 4,5,6 & 7 are assigned 1 lot in that order due to qty/time priority
          *       -> aggressor qty = 0
          */
-        List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        List<MatchEvent> matches = response.getMatches();
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 2, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 20, false, 0L),
@@ -406,7 +405,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         configurableOrderBook.addOrder(ask, false);
-        response = configurableOrderBook.getLastOrderResponse(ask.getId());
+        response = configurableOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
          * 1. TOP Pass - Order 0 is filled for 1 lot
@@ -417,7 +416,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
          * 4. Leveling pass - 1-lot leveling applies first to order 5 (qty priority), then order 2 (time priority),
          *    but there is no more aggressing qty to fulfill order 4's 1 lot leveling.
          */
-        matches = response.getMatchesByPrice().get(200L);
+        matches = response.getMatches();
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 200L, 1, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 200L, 3, false, 0L),
@@ -469,9 +468,9 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         allocationOrderBook.addOrder(ask, false);
-        OrderUpdate response = allocationOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = allocationOrderBook.getLastOrderUpdate(ask.getId());
 
-        List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        List<MatchEvent> matches = response.getMatches();
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 2, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 27, false, 0L),
@@ -492,8 +491,8 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         allocationOrderBook.addOrder(ask, false);
-        response = allocationOrderBook.getLastOrderResponse(ask.getId());
-        matches = response.getMatchesByPrice().get(100L);
+        response = allocationOrderBook.getLastOrderUpdate(ask.getId());
+        matches = response.getMatches();
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 28, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 22, false, 0L)
@@ -506,9 +505,6 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
 
     @Test
     public void testProRataOrderBook() {
-        System.out.println("\ntestProRataOrderBook()");
-        System.out.println("===================================");
-
         final List<Order> bids = Stream.of(2, 42, 56)
                 .map(qty -> {
                     hold(10);
@@ -530,9 +526,9 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         proRataOrderBook.addOrder(ask, false);
-        OrderUpdate response = proRataOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = proRataOrderBook.getLastOrderUpdate(ask.getId());
 
-        List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        List<MatchEvent> matches = response.getMatches();
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 28, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 21, false, 0L),
@@ -551,9 +547,9 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         proRataOrderBook.addOrder(ask, false);
-        response = proRataOrderBook.getLastOrderResponse(ask.getId());
+        response = proRataOrderBook.getLastOrderUpdate(ask.getId());
 
-        matches = response.getMatchesByPrice().get(100L);
+        matches = response.getMatches();
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 28, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 21, false, 0L),
@@ -645,8 +641,8 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
          * then lastly a FIFO match the last order for the all 10 lots.
          */
         lmmTopOrderBook.addOrder(ask, false);
-        final OrderUpdate response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
-        List<MatchEvent> matches = response.getMatchesByPrice().get(200L);
+        final OrderUpdate response = lmmTopOrderBook.getLastOrderUpdate(ask.getId());
+        List<MatchEvent> matches = response.getMatches();
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), higherBids.get(0).getId(), 200L, 10, false, 0L),
                 new MatchEvent(ask.getId(), higherBids.get(1).getId(), 200L, 3, false, 0L),
@@ -689,13 +685,13 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         lmmOrderBook.addOrder(ask, false);
-        final OrderUpdate response = lmmOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 1, false, 0L)
         );
 
-        final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        final List<MatchEvent> matches = response.getMatches();
         final boolean success = matches.size() == expectedMatches.size()
                 && IntStream.range(0, matches.size())
                 .noneMatch(i -> matches.get(i).getRestingOrderId() != expectedMatches.get(i).getRestingOrderId()
@@ -734,13 +730,13 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         lmmTopOrderBook.addOrder(ask, false);
-        OrderUpdate response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = lmmTopOrderBook.getLastOrderUpdate(ask.getId());
 
         // Top order should snag all the quantity of the aggressor leaving none for the LMMs
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 30, false, 0L)
         );
-        List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        List<MatchEvent> matches = response.getMatches();
 
         if (!equalMatches(expectedMatches, matches)) {
             fail(getFailMessage("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
@@ -771,12 +767,12 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         lmmTopOrderBook.addOrder(ask, false);
-        response = lmmTopOrderBook.getLastOrderResponse(ask.getId());
+        response = lmmTopOrderBook.getLastOrderUpdate(ask.getId());
 
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 30, false, 0L)
         );
-        matches = response.getMatchesByPrice().get(100L);
+        matches = response.getMatches();
 
         if (!equalMatches(expectedMatches, matches)) {
             fail(getFailMessage("matches 2", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
@@ -811,13 +807,13 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         lmmOrderBook.addOrder(ask, false);
-        OrderUpdate response = lmmOrderBook.getLastOrderResponse(ask.getId());
+        OrderUpdate response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 24, false, 0L)
         );
-        List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        List<MatchEvent> matches = response.getMatches();
 
         if (!equalMatches(expectedMatches, matches)) {
             fail(getFailMessage("matches 1", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
@@ -831,13 +827,13 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         lmmOrderBook.addOrder(ask, false);
-        response = lmmOrderBook.getLastOrderResponse(ask.getId());
+        response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(2).getId(), 100L, 24, false, 0L)
         );
-        matches = response.getMatchesByPrice().get(100L);
+        matches = response.getMatches();
 
         if (!equalMatches(expectedMatches, matches)) {
             fail(getFailMessage("matches 2", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
@@ -872,7 +868,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .build();
 
         lmmOrderBook.addOrder(ask, false);
-        final OrderUpdate response = lmmOrderBook.getLastOrderResponse(ask.getId());
+        final OrderUpdate response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 6, false, 0L),
@@ -880,7 +876,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 new MatchEvent(ask.getId(), bids.get(0).getId(), 100L, 10, false, 0L),
                 new MatchEvent(ask.getId(), bids.get(1).getId(), 100L, 4, false, 0L)
         );
-        final List<MatchEvent> matches = response.getMatchesByPrice().get(100L);
+        final List<MatchEvent> matches = response.getMatches();
 
         if (!equalMatches(expectedMatches, matches)) {
             fail(getFailMessage("matches", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
@@ -917,18 +913,14 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 }).toList();
 
         // Add bids
-        bids.forEach(b -> {
-            fifoOrderBook.addOrder(b, false);
-        });
-
+        bids.forEach(fifoOrderBook::addOrder);
         asks.forEach(fifoOrderBook::addOrder);
 
-        final List<OrderUpdate> responses = asks.stream().map(Order::getId).map(fifoOrderBook::getLastOrderResponse).toList();
+        final List<OrderUpdate> responses = asks.stream().map(Order::getId).map(fifoOrderBook::getLastOrderUpdate).toList();
 
         final List<MatchEvent> matches = responses.stream()
-                .map(r -> r.getMatchesByPrice().entrySet().stream().map(Map.Entry::getValue).findFirst())
-                .filter(Optional::isPresent)
-                .map(opt -> opt.get().get(0))
+                .filter(u -> !u.isEmpty())
+                .map(r -> r.getMatches().get(0))
                 .toList();
 
         final List<MatchEvent> expectedMatches = List.of(

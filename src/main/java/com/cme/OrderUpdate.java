@@ -3,6 +3,7 @@ package com.cme;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +12,12 @@ import java.util.Map;
 @Setter
 public class OrderUpdate {
 
-    private final Map<Long, List<MatchEvent>> matchesByPrice = new HashMap<>();
+    private final List<MatchEvent> matches = new ArrayList<>();
 
     private OrderStatus status;
     private OrderType type;
     private int remainingQuantity;
+    private long price;
 
     public OrderUpdate(OrderStatus status, OrderType type) {
         this.status = status;
@@ -23,11 +25,12 @@ public class OrderUpdate {
     }
 
     public void addMatches(long price, List<MatchEvent> matchEvents) {
-        matchesByPrice.put(price, matchEvents);
+        this.price = price;
+        matches.addAll(matchEvents);
     }
 
     public boolean isEmpty() {
-        return matchesByPrice.isEmpty();
+        return matches.isEmpty();
     }
 }
 

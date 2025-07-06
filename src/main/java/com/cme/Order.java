@@ -116,7 +116,7 @@ public class Order {
     }
 
     public boolean isStopLimit() {
-        return orderType == OrderType.Stop;
+        return orderType == OrderType.StopLimit;
     }
 
     public boolean isStopWithProtection() {
