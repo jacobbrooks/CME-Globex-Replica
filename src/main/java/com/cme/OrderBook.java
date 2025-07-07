@@ -100,6 +100,7 @@ public class OrderBook {
         }
 
         if (order.isMarketWithProtection()) {
+            order.setOrderType(OrderType.Limit);
             order.setPrice(order.isBuy() ? bestPrice + order.getProtectionPoints() : bestPrice - order.getProtectionPoints());
         }
 
@@ -160,8 +161,8 @@ public class OrderBook {
     private static boolean isMatch(Order order, PriceLevel best, long bestPrice) {
         final boolean isMarketMatch = order.isMarketLimit() ||
                 (order.isMarketWithProtection() && (order.isBuy() ?
-                        best.getPrice() < bestPrice + order.getProtectionPoints() :
-                        best.getPrice() > bestPrice - order.getProtectionPoints()));
+                        best.getPrice() <= bestPrice + order.getProtectionPoints() :
+                        best.getPrice() >= bestPrice - order.getProtectionPoints()));
         return isMarketMatch || (order.isBuy() ?
                 best.getPrice() <= order.getPrice() :
                 best.getPrice() >= order.getPrice());
