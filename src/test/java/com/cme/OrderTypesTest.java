@@ -11,7 +11,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class OrderTypesTest extends OrderBookTest {
 
-    private final Security fifo = new Security(1, MatchingAlgorithm.FIFO);
+    private final Security fifo = Security.builder().id(1)
+            .matchingAlgorithm(MatchingAlgorithm.FIFO)
+            .protectionPoints(100)
+            .build();
     private final OrderBook fifoOrderBook = new OrderBook(fifo);
 
     @Test
@@ -19,7 +22,7 @@ public class OrderTypesTest extends OrderBookTest {
         fifoOrderBook.clear();
 
         // Create resting limit orders
-        final List<Order> asks = Stream.of(100L, 200L, 300L, 400L)
+        final List<Order> asks = Stream.of(100L, 150L, 200L, 250L)
                 .map(price -> Order.builder().clientOrderId(Integer.toString(0))
                         .security(fifo).buy(false).price(price).initialQuantity(1)
                         .build()).toList();
@@ -28,7 +31,7 @@ public class OrderTypesTest extends OrderBookTest {
 
         final Order marketWithProtection = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(true).initialQuantity(4).orderType(OrderType.MarketWithProtection)
-                .protectionPoints(200).build();
+                .build();
 
         fifoOrderBook.addOrder(marketWithProtection);
 
@@ -42,10 +45,10 @@ public class OrderTypesTest extends OrderBookTest {
                     assertSame(OrderStatus.PartialFill, u.getStatus());
                 });
 
-        // Bid should sweep the book up until the 400 ask because that is out of the protection range
+        // Bid should sweep the book up until the 250 ask because that is out of the protection range
         final List<MatchEvent> expectedMatches = List.of(new MatchEvent(marketWithProtection.getId(), asks.get(0).getId(), 100L, 1, true, 0L),
-                new MatchEvent(marketWithProtection.getId(), asks.get(1).getId(), 200L, 1, true, 0L),
-                new MatchEvent(marketWithProtection.getId(), asks.get(2).getId(), 300L, 1, true, 0L));
+                new MatchEvent(marketWithProtection.getId(), asks.get(1).getId(), 150L, 1, true, 0L),
+                new MatchEvent(marketWithProtection.getId(), asks.get(2).getId(), 200L, 1, true, 0L));
         final List<MatchEvent> matches = fifoOrderBook.getOrderUpdates(marketWithProtection.getId()).stream()
                 .filter(u -> !u.isEmpty()).map(u -> u.getMatches().get(0)).toList();
 
@@ -53,9 +56,9 @@ public class OrderTypesTest extends OrderBookTest {
             fail(getFailMessage("matches", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
         }
 
-        // Remaining quantity should rest on the book as a limit order at price = best price (100) + protection points (200)
-        assertEquals(300L, fifoOrderBook.getBidPrices().stream().findFirst().orElse(0L));
-        assertEquals(300L, marketWithProtection.getPrice());
+        // Remaining quantity should rest on the book as a limit order at price = best price (100) + protection points (100) = 200
+        assertEquals(200L, fifoOrderBook.getBidPrices().stream().findFirst().orElse(0L));
+        assertEquals(200L, marketWithProtection.getPrice());
         assertSame(OrderType.Limit, marketWithProtection.getOrderType());
     }
 
@@ -152,7 +155,7 @@ public class OrderTypesTest extends OrderBookTest {
 
         final Order stopOrder = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(true).initialQuantity(10).orderType(OrderType.StopWithProtection)
-                .triggerPrice(100L).protectionPoints(100L).build();
+                .triggerPrice(100L).build();
 
         final Order bidBelowTrigger = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(true).price(50L).initialQuantity(1)

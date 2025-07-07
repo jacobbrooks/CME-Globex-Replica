@@ -3,7 +3,6 @@ package com.cme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -11,16 +10,21 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 public class MatchingAlgorithmsTest extends OrderBookTest {
 
-    private final Security fifo = new Security(1, MatchingAlgorithm.FIFO);
-    private final Security lmm = new Security(1, MatchingAlgorithm.LMM);
-    private final Security lmmTop = new Security(1, MatchingAlgorithm.LMMWithTOP);
-    private final Security proRata = new Security(1, MatchingAlgorithm.ProRata);
-    private final Security allocation = new Security(1, MatchingAlgorithm.Allocation);
-    private final Security configurable = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 2, 40);
-    private final Security configurableNoFIFO = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 2, 0);
-    private final Security configurableNoProRata = new Security(1, MatchingAlgorithm.Configurable, 0, 0, 2, 100);
-    private final Security thresholdProRata = new Security(1, MatchingAlgorithm.ThresholdProRata, 10, 100, 1);
-    private final Security thresholdProRataWithLMM = new Security(1, MatchingAlgorithm.ThresholdProRataWithLMM, 25, 250, 1);
+    private final Security fifo = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.FIFO).build();
+    private final Security lmm = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.LMM).build();
+    private final Security lmmTop = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.LMMWithTOP).build();
+    private final Security proRata = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.ProRata).build();
+    private final Security allocation = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.Allocation).build();
+    private final Security configurable = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.Configurable)
+            .proRataMin(2).splitPercentage(40).build();
+    private final Security configurableNoFIFO = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.Configurable)
+            .proRataMin(2).build();
+    private final Security configurableNoProRata = Security.builder().id(1).matchingAlgorithm(MatchingAlgorithm.Configurable)
+            .proRataMin(2).splitPercentage(100).build();
+    private final Security thresholdProRata = Security.builder().id(1)
+            .matchingAlgorithm(MatchingAlgorithm.ThresholdProRata).topMin(10).topMax(100).proRataMin(1).build();
+    private final Security thresholdProRataWithLMM = Security.builder().id(1)
+            .matchingAlgorithm(MatchingAlgorithm.ThresholdProRataWithLMM).topMin(25).topMax(250).proRataMin(1).build();
 
     private final OrderBook fifoOrderBook = new OrderBook(fifo);
     private final OrderBook lmmOrderBook = new OrderBook(lmm);

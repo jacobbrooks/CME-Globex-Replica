@@ -21,7 +21,6 @@ public class Order {
     private final int originId;
     private final String clientOrderId;
     private final Security security;
-    private final long protectionPoints;
     private final long triggerPrice;
     private final int initialQuantity;
     private final boolean buy;
@@ -94,6 +93,8 @@ public class Order {
     public int getRemainingQuantity() {
         return initialQuantity - filledQuantity;
     }
+
+    public int getProtectionPoints() { return security.getProtectionPoints(); }
 
     public boolean isFilled() {
         return getRemainingQuantity() == 0;

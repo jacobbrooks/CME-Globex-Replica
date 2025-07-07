@@ -14,8 +14,8 @@ public class OrderGateway {
     final Map<Integer, Security> securitiesById = new HashMap<>();
 
     public OrderGateway() {
-        securitiesById.put(1, new Security(1, MatchingAlgorithm.FIFO));
-        securitiesById.put(2, new Security(2, MatchingAlgorithm.LMM));
+        //securitiesById.put(1, new Security(1, MatchingAlgorithm.FIFO));
+        //securitiesById.put(2, new Security(2, MatchingAlgorithm.LMM));
     }
 
     public void start() {
