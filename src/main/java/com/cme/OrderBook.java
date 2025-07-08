@@ -57,6 +57,19 @@ public class OrderBook {
             return;
         }
 
+        final boolean sufficientQuantity = order.getMinQuantity() == 0
+                || matchAgainst.entrySet().stream().filter(e -> order.isBuy() ?
+                        e.getKey() <= order.getPrice() : e.getKey() >= order.getPrice())
+                    .map(Map.Entry::getValue)
+                    .mapToInt(PriceLevel::getTotalQuantity)
+                    .sum() >= order.getMinQuantity();
+
+        if(!sufficientQuantity) {
+            final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, order.getOrderType());
+            orderUpdateMap.get(order.getId()).add(elimination);
+            return;
+        }
+
         boolean lastTradedPriceUpdated = false;
 
         while (best.isPresent() && !order.isFilled()) {
@@ -112,7 +125,7 @@ public class OrderBook {
             currentTopAsk = Optional.empty();
         }
 
-        if (!order.isFilled()) {
+        if (!order.isFilled() && order.getTimeInForce() != TimeInForce.FAK) {
             final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order.getPrice(),
                     security.getMatchingAlgorithm(), matchStepComparator));
 
@@ -135,6 +148,10 @@ public class OrderBook {
                     currentTopAsk = Optional.of(order);
                 }
             }
+        } else if(!order.isFilled()) {
+            // FAK order gets eliminated instead of resting on the book
+            final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, order.getOrderType());
+            orderUpdateMap.get(order.getId()).add(elimination);
         }
 
         if(!lastTradedPriceUpdated) {
@@ -181,9 +198,7 @@ public class OrderBook {
         return priceLevelByOrderId.get(orderId).getOrder(orderId);
     }
 
-    public List<Long> getBidPrices() {
-        return bids.keySet().stream().toList();
-    }
+    public List<Long> getBidPrices() { return bids.keySet().stream().toList(); }
 
     public List<Long> getAskPrices() { return asks.keySet().stream().toList(); }
 

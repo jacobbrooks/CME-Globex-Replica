@@ -1,9 +1,8 @@
 package com.cme;
 
-public enum OrderDuration {
+public enum TimeInForce {
     Day,
     GTC,
     GTD,
-    FAK,
-    FOK
+    FAK
 }

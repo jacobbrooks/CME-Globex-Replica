@@ -16,13 +16,15 @@ public class Order {
     private final long timestamp = System.currentTimeMillis();
 
     @Builder.Default
-    private final OrderDuration orderDuration = OrderDuration.Day;
+    private final TimeInForce timeInForce = TimeInForce.Day;
 
     private final int originId;
     private final String clientOrderId;
     private final Security security;
     private final long triggerPrice;
     private final int initialQuantity;
+    private final int minQuantity;
+    private final int displayQuantity;
     private final boolean buy;
 
     @Setter

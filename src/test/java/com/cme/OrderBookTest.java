@@ -25,9 +25,10 @@ public class OrderBookTest {
 
     protected boolean equalMatches(List<MatchEvent> expected, List<MatchEvent> actual) {
         return actual.size() == expected.size()
-                && !IntStream.range(0, actual.size())
-                .anyMatch(i -> actual.get(i).getRestingOrderId() != expected.get(i).getRestingOrderId()
-                        || actual.get(i).getMatchQuantity() != expected.get(i).getMatchQuantity());
+                && IntStream.range(0, actual.size())
+                .noneMatch(i -> actual.get(i).getRestingOrderId() != expected.get(i).getRestingOrderId()
+                        || actual.get(i).getMatchQuantity() != expected.get(i).getMatchQuantity()
+                        || actual.get(i).getMatchPrice() != expected.get(i).getMatchPrice());
     }
 
     protected void hold(long ms) {
