@@ -27,7 +27,7 @@ public class OrderTypesTest extends OrderBookTest {
                         .security(fifo).buy(false).price(price).initialQuantity(1)
                         .build()).toList();
 
-        asks.forEach(fifoOrderBook::addOrder);
+        asks.forEach(order -> fifoOrderBook.addOrder(order));
 
         final Order marketWithProtection = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(true).initialQuantity(4).orderType(OrderType.MarketWithProtection)
@@ -72,7 +72,7 @@ public class OrderTypesTest extends OrderBookTest {
                         .security(fifo).buy(false).price(price).initialQuantity(1)
                         .build()).toList();
 
-        asks.forEach(fifoOrderBook::addOrder);
+        asks.forEach(order -> fifoOrderBook.addOrder(order));
 
         final Order marketLimitBid = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(true).initialQuantity(4).orderType(OrderType.MarketLimit)
@@ -200,7 +200,7 @@ public class OrderTypesTest extends OrderBookTest {
         fifoOrderBook.addOrder(askBelowTrigger);
 
         // Set up some resting asks for the stop order to match against once triggered;
-        restingAsksToMatchStop.forEach(fifoOrderBook::addOrder);
+        restingAsksToMatchStop.forEach(order -> fifoOrderBook.addOrder(order));
 
         // Trigger the stop order with a trade @ 130
         fifoOrderBook.addOrder(stopTriggerBid);

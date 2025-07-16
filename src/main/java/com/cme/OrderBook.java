@@ -1,14 +1,19 @@
 package com.cme;
 
+import lombok.Getter;
+
 import java.util.*;
 
 public class OrderBook {
 
+    @Getter
     private final Security security;
     private final MatchStepComparator matchStepComparator;
 
     private final TreeMap<Long, PriceLevel> bids = new TreeMap<>(Collections.reverseOrder());
     private final TreeMap<Long, PriceLevel> asks = new TreeMap<>();
+
+    @Getter
     private final Map<Integer, PriceLevel> priceLevelByOrderId = new HashMap<>();
     private final Map<String, Integer> orderIdByClientOrderId = new HashMap<>();
     private final Map<Integer, List<OrderUpdate>> orderUpdateMap = new HashMap<>();
@@ -17,8 +22,8 @@ public class OrderBook {
     private final Map<Integer, Order> icebergOrders = new HashMap<>();
     private final OrderScheduler orderScheduler;
 
-    private Optional<Order> currentTopBid = Optional.empty();
-    private Optional<Order> currentTopAsk = Optional.empty();
+    private Optional<Order> topBid = Optional.empty();
+    private Optional<Order> topAsk = Optional.empty();
 
     private long lastTradedPrice;
 
@@ -28,10 +33,6 @@ public class OrderBook {
         this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
     }
 
-    public void addOrder(Order order) {
-        addOrder(order, false);
-    }
-
     /*
      * To be implemented
      */
@@ -39,7 +40,7 @@ public class OrderBook {
         return true;
     }
 
-    public void addOrder(Order order, boolean print) {
+    public void addOrder(Order order) {
         final OrderUpdate ack = new OrderUpdate(OrderStatus.New, order.getOrderType());
         orderUpdateMap.computeIfAbsent(order.getId(), k -> new ArrayList<OrderUpdate>()).add(ack);
 
@@ -84,7 +85,7 @@ public class OrderBook {
             final OrderUpdate aggressorFillNotice = new OrderUpdate(order.isFilled() ? OrderStatus.CompleteFill : OrderStatus.PartialFill, finalOrder.getOrderType());
             aggressorFillNotice.addMatches(lastTradedPrice, matches);
             aggressorFillNotice.setRemainingQuantity(finalOrder.getRemainingQuantity());
-            orderUpdateMap.get(finalOrder.getId()).add(aggressorFillNotice);
+            orderUpdateMap.get(finalOrder.isSlice() ? finalOrder.getOriginId() : finalOrder.getId()).add(aggressorFillNotice);
 
             matches.forEach(m -> {
                 final int remainingQty = Optional.ofNullable(priceLevelByOrderId.get(m.getRestingOrderId()).getOrder(m.getRestingOrderId()))
@@ -105,10 +106,6 @@ public class OrderBook {
                 finalOrder.setOrderType(OrderType.Limit);
                 finalOrder.setPrice(this.lastTradedPrice);
             }
-
-            if (print) {
-                matches.forEach(System.out::println);
-            }
         }
 
         if (finalOrder.isMarketWithProtection()) {
@@ -116,12 +113,12 @@ public class OrderBook {
             finalOrder.setPrice(order.isBuy() ? bestPrice + finalOrder.getProtectionPoints() : bestPrice - finalOrder.getProtectionPoints());
         }
 
-        if (currentTopBid.map(Order::isFilled).orElse(false)) {
-            currentTopBid = Optional.empty();
+        if (topBid.map(Order::isFilled).orElse(false)) {
+            topBid = Optional.empty();
         }
 
-        if (currentTopAsk.map(Order::isFilled).orElse(false)) {
-            currentTopAsk = Optional.empty();
+        if (topAsk.map(Order::isFilled).orElse(false)) {
+            topAsk = Optional.empty();
         }
 
         if (!finalOrder.isFilled() && finalOrder.getTimeInForce() != TimeInForce.FAK) {
@@ -144,11 +141,11 @@ public class OrderBook {
 
             if (deservesTopStatus) {
                 if (finalOrder.isBuy()) {
-                    currentTopBid.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
-                    currentTopBid = Optional.of(finalOrder);
+                    topBid.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
+                    topBid = Optional.of(finalOrder);
                 } else {
-                    currentTopAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
-                    currentTopAsk = Optional.of(finalOrder);
+                    topAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
+                    topAsk = Optional.of(finalOrder);
                 }
             }
         }
@@ -232,19 +229,21 @@ public class OrderBook {
         stopOrders.clear();
         icebergOrders.clear();
         orderUpdateMap.clear();
-        currentTopBid = Optional.empty();
-        currentTopAsk = Optional.empty();
+        topBid = Optional.empty();
+        topAsk = Optional.empty();
     }
 
     public boolean isEmpty() {
         return bids.isEmpty() && asks.isEmpty();
     }
 
-    public void printBook() {
-        System.out.println("============ Bids " + bids.size() + " ==============");
-        bids.values().stream().map(PriceLevel::toString).forEach(System.out::println);
-        System.out.println("============ Asks " + asks.size() + " ==============");
-        asks.values().stream().map(PriceLevel::toString).forEach(System.out::println);
+    public String toString() {
+        final StringBuilder builder = new StringBuilder();
+        builder.append("\n============ Bids ").append(bids.size()).append(" ==============\n");
+        bids.values().stream().map(PriceLevel::toString).forEach(builder::append);
+        builder.append("\n============ Asks ").append(asks.size()).append(" ==============\n");
+        asks.values().stream().map(PriceLevel::toString).forEach(builder::append);
+        return builder.toString();
     }
 
 }

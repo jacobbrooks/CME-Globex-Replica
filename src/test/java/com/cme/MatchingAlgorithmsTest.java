@@ -52,7 +52,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(b -> thresholdProRataWithLMMOrderBook.addOrder(b, false));
+        bids.forEach(b -> thresholdProRataWithLMMOrderBook.addOrder(b));
 
         final List<Order> top = bids.stream().filter(Order::isTop).toList();
         final String topOrderId = "Order id: " + top.stream()
@@ -74,7 +74,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .lmmAllocationPercentage(0)
                 .build();
 
-        thresholdProRataWithLMMOrderBook.addOrder(ask, false);
+        thresholdProRataWithLMMOrderBook.addOrder(ask);
         final OrderUpdate response = thresholdProRataWithLMMOrderBook.getLastOrderUpdate(ask.getId());
 
         final List<MatchEvent> matches = response.getMatches();
@@ -108,7 +108,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(b -> thresholdProRataOrderBook.addOrder(b, false));
+        bids.forEach(thresholdProRataOrderBook::addOrder);
 
         final List<Order> top = bids.stream().filter(Order::isTop).toList();
         final String topOrderId = "Order id: " + top.stream()
@@ -130,7 +130,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .lmmAllocationPercentage(0)
                 .build();
 
-        thresholdProRataOrderBook.addOrder(ask, false);
+        thresholdProRataOrderBook.addOrder(ask);
         final OrderUpdate response = thresholdProRataOrderBook.getLastOrderUpdate(ask.getId());
 
         final List<MatchEvent> matches = response.getMatches();
@@ -161,7 +161,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                     .build();
         }).toList();
 
-        bids.forEach(b -> configurableNoProRataOrderBook.addOrder(b, false));
+        bids.forEach(configurableNoProRataOrderBook::addOrder);
 
         final List<Order> top = bids.stream().filter(Order::isTop).toList();
         final String topOrderId = "Order id: " + top.stream()
@@ -183,7 +183,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .lmmAllocationPercentage(0)
                 .build();
 
-        configurableNoProRataOrderBook.addOrder(ask, false);
+        configurableNoProRataOrderBook.addOrder(ask);
         final OrderUpdate response = configurableNoProRataOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
@@ -222,7 +222,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                     .build();
         }).toList();
 
-        bids.forEach(b -> configurableNoFIFOOrderBook.addOrder(b, false));
+        bids.forEach(configurableNoFIFOOrderBook::addOrder);
 
         final List<Order> top = bids.stream().filter(Order::isTop).toList();
         final String topOrderId = "Order id: " + top.stream()
@@ -244,7 +244,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .lmmAllocationPercentage(0)
                 .build();
 
-        configurableNoFIFOOrderBook.addOrder(ask, false);
+        configurableNoFIFOOrderBook.addOrder(ask);
         final OrderUpdate response = configurableNoFIFOOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
@@ -287,7 +287,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .lmmAllocationPercentage(0)
                 .build();
 
-        configurableNoFIFOOrderBook.addOrder(oneMoreTOP, false);
+        configurableNoFIFOOrderBook.addOrder(oneMoreTOP);
 
         if (oneMoreTOP.isTop()) {
             fail(getFailMessage("TOP event 2: Not exactly 1 top order"));
@@ -310,7 +310,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                     .build();
         }).toList();
 
-        bids.forEach(b -> configurableOrderBook.addOrder(b, false));
+        bids.forEach(configurableOrderBook::addOrder);
 
         List<Order> top = bids.stream().filter(Order::isTop).toList();
         String topOrderId = "Order id: " + top.stream()
@@ -332,7 +332,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .lmmAllocationPercentage(0)
                 .build();
 
-        configurableOrderBook.addOrder(ask, false);
+        configurableOrderBook.addOrder(ask);
         OrderUpdate response = configurableOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
@@ -387,7 +387,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
         }).toList();
 
 
-        bids.forEach(b -> configurableOrderBook.addOrder(b, false));
+        bids.forEach(configurableOrderBook::addOrder);
 
         top = bids.stream().filter(Order::isTop).toList();
         topOrderId = "Order id: " + top.stream()
@@ -408,7 +408,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(8)
                 .build();
 
-        configurableOrderBook.addOrder(ask, false);
+        configurableOrderBook.addOrder(ask);
         response = configurableOrderBook.getLastOrderUpdate(ask.getId());
 
         /*
@@ -450,7 +450,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(b -> allocationOrderBook.addOrder(b, false));
+        bids.forEach(allocationOrderBook::addOrder);
 
         List<Order> top = bids.stream().filter(Order::isTop).toList();
         final String topOrderId = "Order id: " + top.stream()
@@ -471,7 +471,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(50)
                 .build();
 
-        allocationOrderBook.addOrder(ask, false);
+        allocationOrderBook.addOrder(ask);
         OrderUpdate response = allocationOrderBook.getLastOrderUpdate(ask.getId());
 
         List<MatchEvent> matches = response.getMatches();
@@ -494,7 +494,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(50)
                 .build();
 
-        allocationOrderBook.addOrder(ask, false);
+        allocationOrderBook.addOrder(ask);
         response = allocationOrderBook.getLastOrderUpdate(ask.getId());
         matches = response.getMatches();
         expectedMatches = List.of(
@@ -520,7 +520,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(b -> proRataOrderBook.addOrder(b, false));
+        bids.forEach(proRataOrderBook::addOrder);
 
         Order ask = Order.builder().clientOrderId(Integer.toString(0))
                 .security(proRata)
@@ -529,7 +529,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(50)
                 .build();
 
-        proRataOrderBook.addOrder(ask, false);
+        proRataOrderBook.addOrder(ask);
         OrderUpdate response = proRataOrderBook.getLastOrderUpdate(ask.getId());
 
         List<MatchEvent> matches = response.getMatches();
@@ -550,7 +550,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(50)
                 .build();
 
-        proRataOrderBook.addOrder(ask, false);
+        proRataOrderBook.addOrder(ask);
         response = proRataOrderBook.getLastOrderUpdate(ask.getId());
 
         matches = response.getMatches();
@@ -580,7 +580,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(b -> lmmTopOrderBook.addOrder(b, false));
+        bids.forEach(lmmTopOrderBook::addOrder);
 
         List<Order> top = bids.stream().filter(Order::isTop).toList();
         final String topOrderId = "Order id: " + top.stream()
@@ -610,9 +610,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        higherBids.forEach(o -> {
-            lmmTopOrderBook.addOrder(o, false);
-        });
+        higherBids.forEach(lmmTopOrderBook::addOrder);
 
         top = Stream.concat(bids.stream().filter(Order::isTop), higherBids.stream().filter(Order::isTop)).toList();
         if (top.size() != 1) {
@@ -644,7 +642,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
          *
          * then lastly a FIFO match the last order for the all 10 lots.
          */
-        lmmTopOrderBook.addOrder(ask, false);
+        lmmTopOrderBook.addOrder(ask);
         final OrderUpdate response = lmmTopOrderBook.getLastOrderUpdate(ask.getId());
         List<MatchEvent> matches = response.getMatches();
         List<MatchEvent> expectedMatches = List.of(
@@ -677,9 +675,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(o -> {
-            lmmOrderBook.addOrder(o, false);
-        });
+        bids.forEach(lmmOrderBook::addOrder);
 
         final Order ask = Order.builder().clientOrderId(Integer.toString(0))
                 .security(lmm)
@@ -688,7 +684,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(1)
                 .build();
 
-        lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask);
         final OrderUpdate response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(
@@ -723,7 +719,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 }).toList();
 
         bids.forEach(o -> {
-            lmmTopOrderBook.addOrder(o, false);
+            lmmTopOrderBook.addOrder(o);
         });
 
         Order ask = Order.builder().clientOrderId(Integer.toString(0))
@@ -733,7 +729,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(30)
                 .build();
 
-        lmmTopOrderBook.addOrder(ask, false);
+        lmmTopOrderBook.addOrder(ask);
         OrderUpdate response = lmmTopOrderBook.getLastOrderUpdate(ask.getId());
 
         // Top order should snag all the quantity of the aggressor leaving none for the LMMs
@@ -770,7 +766,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(30)
                 .build();
 
-        lmmTopOrderBook.addOrder(ask, false);
+        lmmTopOrderBook.addOrder(ask);
         response = lmmTopOrderBook.getLastOrderUpdate(ask.getId());
 
         expectedMatches = List.of(
@@ -799,9 +795,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(o -> {
-            lmmOrderBook.addOrder(o, false);
-        });
+        bids.forEach(lmmOrderBook::addOrder);
 
         Order ask = Order.builder().clientOrderId(Integer.toString(0))
                 .security(lmm)
@@ -810,7 +804,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(30)
                 .build();
 
-        lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask);
         OrderUpdate response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         List<MatchEvent> expectedMatches = List.of(
@@ -830,7 +824,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(30)
                 .build();
 
-        lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask);
         response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         expectedMatches = List.of(
@@ -860,9 +854,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(o -> {
-            lmmOrderBook.addOrder(o, false);
-        });
+        bids.forEach(lmmOrderBook::addOrder);
 
         final Order ask = Order.builder().clientOrderId(Integer.toString(0))
                 .security(lmm)
@@ -871,7 +863,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                 .initialQuantity(30)
                 .build();
 
-        lmmOrderBook.addOrder(ask, false);
+        lmmOrderBook.addOrder(ask);
         final OrderUpdate response = lmmOrderBook.getLastOrderUpdate(ask.getId());
 
         final List<MatchEvent> expectedMatches = List.of(

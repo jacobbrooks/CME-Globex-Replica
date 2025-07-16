@@ -2,9 +2,7 @@ package com.cme;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,7 +13,44 @@ public class OrderQualifiersTest extends OrderBookTest {
             .matchingAlgorithm(MatchingAlgorithm.FIFO)
             .build();
 
-    private final OrderBook fifoOrderBook = new OrderBook(fifo, null);
+    private final OrderGateway gateway = new OrderGateway();
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, gateway);
+
+    @Test
+    public void testIcebergOrder() {
+        fifoOrderBook.clear();
+        gateway.addOrderBook(fifoOrderBook);
+        gateway.start();
+
+        // Create resting limit orders
+        final List<Order> asks = Stream.of(200L, 300L)
+                .map(price -> Order.builder().clientOrderId(Integer.toString(0))
+                        .security(fifo).buy(false).price(price).initialQuantity(2)
+                        .build()).toList();
+
+        // Create iceberg bid with display quantity 1
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(300L).initialQuantity(4).displayQuantity(1)
+                .build();
+
+        asks.forEach(fifoOrderBook::addOrder);
+        fifoOrderBook.addOrder(bid);
+
+        final List<MatchEvent> matches = asks.stream()
+                .flatMap(a -> fifoOrderBook.getOrderUpdates(a.getId()).stream()
+                        .filter(u -> !u.isEmpty())
+                        .flatMap(u -> u.getMatches().stream())).toList();
+
+        // The id of each iceberg child/slice should be consecutive +1 increments of the parent iceberg
+        final List<MatchEvent> expectedMatches = List.of(new MatchEvent(bid.getId() + 1, asks.get(0).getId(), 200L, 1, true, 0L),
+                new MatchEvent(bid.getId() + 2, asks.get(0).getId(), 200L, 1, true, 0L),
+                new MatchEvent(bid.getId() + 3, asks.get(1).getId(), 300L, 1, true, 0L),
+                new MatchEvent(bid.getId() + 4, asks.get(1).getId(), 300L, 1, true, 0L));
+
+        if (!equalMatches(expectedMatches, matches)) {
+            fail(getFailMessage("matches", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
+        }
+    }
 
     /*
      * This also in effect tests FOK orders because minQty = initialQty
@@ -34,7 +69,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .buy(true).price(300L).initialQuantity(2).minQuantity(2)
                 .timeInForce(TimeInForce.FAK).build();
 
-        asks.forEach(fifoOrderBook::addOrder);
+        asks.forEach(order -> fifoOrderBook.addOrder(order));
 
         // Order should hit 200, 300 price levels and be left with 1 lot remaining, which will
         // be ignored due to the order expiring
@@ -76,7 +111,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .buy(true).price(300L).initialQuantity(3).minQuantity(3)
                 .timeInForce(TimeInForce.FAK).build();
 
-        asks.forEach(fifoOrderBook::addOrder);
+        asks.forEach(order -> fifoOrderBook.addOrder(order));
 
         // The summed qty of the 200 & 300 price levels does not meet the bid's min qty
         fifoOrderBook.addOrder(bid);
@@ -101,7 +136,7 @@ public class OrderQualifiersTest extends OrderBookTest {
         final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
                 .buy(true).price(300L).initialQuantity(3).timeInForce(TimeInForce.FAK).build();
 
-        asks.forEach(fifoOrderBook::addOrder);
+        asks.forEach(order -> fifoOrderBook.addOrder(order));
 
         // Order should hit 200, 300 price levels and be left with 1 lot remaining, which will
         // be ignored due to the order expiring

@@ -13,9 +13,8 @@ public class OrderGateway implements OrderScheduler {
     final Map<Integer, OrderBook> orderBooks = new ConcurrentHashMap<>();
     final Map<Integer, Security> securitiesById = new HashMap<>();
 
-    public OrderGateway() {
-        //securitiesById.put(1, new Security(1, MatchingAlgorithm.FIFO));
-        //securitiesById.put(2, new Security(2, MatchingAlgorithm.LMM));
+    public void addOrderBook(OrderBook orderbook) {
+        orderBooks.put(orderbook.getSecurity().getId(), orderbook);
     }
 
     public void start() {
@@ -26,7 +25,7 @@ public class OrderGateway implements OrderScheduler {
                     continue;
                 }
                 final OrderBook book = orderBooks.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(securitiesById.get(nextOrder.getSecurity().getId()), this));
-                book.addOrder(nextOrder, true);
+                book.addOrder(nextOrder);
             }
         };
         new Thread(queueConsumer).start();
@@ -38,7 +37,7 @@ public class OrderGateway implements OrderScheduler {
     }
 
     public void printBook(int securityId) {
-        orderBooks.get(securityId).printBook();
+        System.out.println(orderBooks.get(securityId).toString());
     }
 
 }
