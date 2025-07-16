@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 
-public class OrderGateway {
+public class OrderGateway implements OrderScheduler {
 
     final PriorityBlockingQueue<Order> orderQueue = new PriorityBlockingQueue<>(1, Comparator.comparing(Order::getTimestamp));
     final Map<Integer, OrderBook> orderBooks = new ConcurrentHashMap<>();
@@ -25,13 +25,14 @@ public class OrderGateway {
                 if (nextOrder == null) {
                     continue;
                 }
-                final OrderBook book = orderBooks.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(securitiesById.get(nextOrder.getSecurity().getId())));
+                final OrderBook book = orderBooks.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(securitiesById.get(nextOrder.getSecurity().getId()), this));
                 book.addOrder(nextOrder, true);
             }
         };
         new Thread(queueConsumer).start();
     }
 
+    @Override
     public void submit(Order order) {
         orderQueue.put(order);
     }

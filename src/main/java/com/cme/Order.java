@@ -42,6 +42,7 @@ public class Order {
     private boolean lmmAllocated;
     private boolean proRataAllocated;
     private boolean markedForLeveling;
+    private boolean slice;
 
     public static class OrderBuilder {
         public OrderBuilder initialQuantity(int initialQuantity) {
@@ -50,8 +51,15 @@ public class Order {
         }
     }
 
+    public void fill(int quantity) {
+        fill(quantity, null);
+    }
+
     public void fill(int quantity, MatchStep matchStep) {
         filledQuantity += quantity;
+        if(matchStep == null) {
+            return;
+        }
         if (matchStep == MatchStep.LMM && !lmmAllocated) {
             lmmAllocated = true;
         }
@@ -86,6 +94,16 @@ public class Order {
     public void setInitialSplitFIFOQuantity() {
         this.remainingSplitFIFOQuantity = (int) Math.round((security.getSplitPercentage()
                 * (double) getRemainingQuantity()) / 100);
+    }
+
+    public Order getNewSlice() {
+        if(this.slice || isFilled()) {
+            return null;
+        }
+        filledQuantity += displayQuantity;
+        return builder().originId(id).timeInForce(timeInForce).clientOrderId(clientOrderId)
+                .security(security).triggerPrice(triggerPrice).initialQuantity(displayQuantity)
+                .minQuantity(minQuantity).buy(buy).orderType(orderType).price(price).slice(true).build();
     }
 
     public void markForLeveling() {
@@ -125,6 +143,8 @@ public class Order {
     public boolean isStopWithProtection() {
         return orderType == OrderType.StopWithProtection;
     }
+
+    //public Order to
 
     public String toString() {
         return "#" + id + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + lmmAllocationPercentage + "%";

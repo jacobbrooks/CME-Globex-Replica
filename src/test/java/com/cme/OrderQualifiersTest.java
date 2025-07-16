@@ -15,7 +15,7 @@ public class OrderQualifiersTest extends OrderBookTest {
             .matchingAlgorithm(MatchingAlgorithm.FIFO)
             .build();
 
-    private final OrderBook fifoOrderBook = new OrderBook(fifo);
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, null);
 
     /*
      * This also in effect tests FOK orders because minQty = initialQty

@@ -12,15 +12,19 @@ public class OrderBook {
     private final Map<Integer, PriceLevel> priceLevelByOrderId = new HashMap<>();
     private final Map<String, Integer> orderIdByClientOrderId = new HashMap<>();
     private final Map<Integer, List<OrderUpdate>> orderUpdateMap = new HashMap<>();
+
     private final PriorityQueue<Order> stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
+    private final Map<Integer, Order> icebergOrders = new HashMap<>();
+    private final OrderScheduler orderScheduler;
 
     private Optional<Order> currentTopBid = Optional.empty();
     private Optional<Order> currentTopAsk = Optional.empty();
 
     private long lastTradedPrice;
 
-    public OrderBook(Security security) {
+    public OrderBook(Security security, OrderScheduler orderScheduler) {
         this.security = security;
+        this.orderScheduler = orderScheduler;
         this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
     }
 
@@ -57,40 +61,35 @@ public class OrderBook {
             return;
         }
 
-        final boolean sufficientQuantity = order.getMinQuantity() == 0
-                || matchAgainst.entrySet().stream().filter(e -> order.isBuy() ?
-                        e.getKey() <= order.getPrice() : e.getKey() >= order.getPrice())
-                    .map(Map.Entry::getValue)
-                    .mapToInt(PriceLevel::getTotalQuantity)
-                    .sum() >= order.getMinQuantity();
+        if(order.getDisplayQuantity() > 0) {
+            icebergOrders.put(order.getId(), order);
+        }
 
-        if(!sufficientQuantity) {
-            final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, order.getOrderType());
-            orderUpdateMap.get(order.getId()).add(elimination);
+        final Order finalOrder = order.getDisplayQuantity() > 0 ? order.getNewSlice() : order;
+
+        if(!minQuantityMet(finalOrder, matchAgainst)) {
+            final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, finalOrder.getOrderType());
+            orderUpdateMap.get(finalOrder.getId()).add(elimination);
             return;
         }
 
         boolean lastTradedPriceUpdated = false;
 
-        while (best.isPresent() && !order.isFilled()) {
-            if (!isMatch(order, best.get(), bestPrice)) {
-                break;
-            }
-
+        while (best.isPresent() && !finalOrder.isFilled() && isMatch(finalOrder, best.get(), bestPrice)) {
             this.lastTradedPrice = best.get().getPrice();
             lastTradedPriceUpdated = true;
 
-            final List<MatchEvent> matches = best.get().match(order);
+            final List<MatchEvent> matches = best.get().match(finalOrder);
 
-            final OrderUpdate aggressorFillNotice = new OrderUpdate(order.isFilled() ? OrderStatus.CompleteFill : OrderStatus.PartialFill, order.getOrderType());
+            final OrderUpdate aggressorFillNotice = new OrderUpdate(order.isFilled() ? OrderStatus.CompleteFill : OrderStatus.PartialFill, finalOrder.getOrderType());
             aggressorFillNotice.addMatches(lastTradedPrice, matches);
-            aggressorFillNotice.setRemainingQuantity(order.getRemainingQuantity());
-            orderUpdateMap.get(order.getId()).add(aggressorFillNotice);
+            aggressorFillNotice.setRemainingQuantity(finalOrder.getRemainingQuantity());
+            orderUpdateMap.get(finalOrder.getId()).add(aggressorFillNotice);
 
             matches.forEach(m -> {
                 final int remainingQty = Optional.ofNullable(priceLevelByOrderId.get(m.getRestingOrderId()).getOrder(m.getRestingOrderId()))
                         .map(Order::getRemainingQuantity).orElse(0);
-                final OrderUpdate restingFillNotice = new OrderUpdate(remainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, order.getOrderType());
+                final OrderUpdate restingFillNotice = new OrderUpdate(remainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, finalOrder.getOrderType());
                 restingFillNotice.addMatches(lastTradedPrice, List.of(m));
                 restingFillNotice.setRemainingQuantity(remainingQty);
                 orderUpdateMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(restingFillNotice);
@@ -103,8 +102,8 @@ public class OrderBook {
             best = Optional.ofNullable(matchAgainst.firstEntry()).map(Map.Entry::getValue);
 
             if(order.isMarketLimit()) {
-                order.setOrderType(OrderType.Limit);
-                order.setPrice(this.lastTradedPrice);
+                finalOrder.setOrderType(OrderType.Limit);
+                finalOrder.setPrice(this.lastTradedPrice);
             }
 
             if (print) {
@@ -112,9 +111,9 @@ public class OrderBook {
             }
         }
 
-        if (order.isMarketWithProtection()) {
-            order.setOrderType(OrderType.Limit);
-            order.setPrice(order.isBuy() ? bestPrice + order.getProtectionPoints() : bestPrice - order.getProtectionPoints());
+        if (finalOrder.isMarketWithProtection()) {
+            finalOrder.setOrderType(OrderType.Limit);
+            finalOrder.setPrice(order.isBuy() ? bestPrice + finalOrder.getProtectionPoints() : bestPrice - finalOrder.getProtectionPoints());
         }
 
         if (currentTopBid.map(Order::isFilled).orElse(false)) {
@@ -125,33 +124,45 @@ public class OrderBook {
             currentTopAsk = Optional.empty();
         }
 
-        if (!order.isFilled() && order.getTimeInForce() != TimeInForce.FAK) {
-            final PriceLevel addTo = resting.computeIfAbsent(order.getPrice(), k -> new PriceLevel(order.getPrice(),
-                    security.getMatchingAlgorithm(), matchStepComparator));
+        if (!finalOrder.isFilled() && finalOrder.getTimeInForce() != TimeInForce.FAK) {
+            final PriceLevel addTo = resting.computeIfAbsent(finalOrder.getPrice(), k -> new PriceLevel(finalOrder.getPrice(),
+                    security.getMatchingAlgorithm(), matchStepComparator, orderScheduler));
+
+            if(finalOrder.isSlice()) {
+                addTo.addIceberg(icebergOrders.get(finalOrder.getOriginId()));
+            }
 
             final boolean deservesTopStatus = matchStepComparator.hasStep(MatchStep.TOP)
-                    && order.getPrice() == resting.firstEntry().getKey()
-                    && order.getRemainingQuantity() >= security.getTopMin()
+                    && finalOrder.getPrice() == resting.firstEntry().getKey()
+                    && finalOrder.getRemainingQuantity() >= security.getTopMin()
                     && addTo.isEmpty();
 
-            order.setTop(deservesTopStatus);
-            addTo.add(order);
-            priceLevelByOrderId.put(order.getId(), addTo);
-            orderIdByClientOrderId.put(order.getClientOrderId(), order.getId());
+            finalOrder.setTop(deservesTopStatus);
+            addTo.add(finalOrder);
+            priceLevelByOrderId.put(finalOrder.getId(), addTo);
+            orderIdByClientOrderId.put(finalOrder.getClientOrderId(), finalOrder.getId());
 
             if (deservesTopStatus) {
-                if (order.isBuy()) {
+                if (finalOrder.isBuy()) {
                     currentTopBid.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
-                    currentTopBid = Optional.of(order);
+                    currentTopBid = Optional.of(finalOrder);
                 } else {
                     currentTopAsk.ifPresent(o -> priceLevelByOrderId.get(o.getId()).unassignTop());
-                    currentTopAsk = Optional.of(order);
+                    currentTopAsk = Optional.of(finalOrder);
                 }
             }
-        } else if(!order.isFilled()) {
-            // FAK order gets eliminated instead of resting on the book
-            final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, order.getOrderType());
-            orderUpdateMap.get(order.getId()).add(elimination);
+        }
+
+        if(!finalOrder.isFilled() && finalOrder.getTimeInForce() == TimeInForce.FAK) {
+            final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, finalOrder.getOrderType());
+            orderUpdateMap.get(finalOrder.getId()).add(elimination);
+        }
+
+        if(finalOrder.isFilled() && finalOrder.isSlice() && !icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
+            orderScheduler.submit(icebergOrders.get(finalOrder.getOriginId()).getNewSlice());
+            if(icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
+                icebergOrders.remove(finalOrder.getOriginId());
+            }
         }
 
         if(!lastTradedPriceUpdated) {
@@ -169,6 +180,17 @@ public class OrderBook {
             o.setOrderType(OrderType.Limit);
             addOrder(o);
         });
+
+    }
+
+    private boolean minQuantityMet(Order order, TreeMap<Long, PriceLevel> matchAgainst) {
+        return order.getMinQuantity() == 0 || order.getTimeInForce() != TimeInForce.FAK
+                || matchAgainst.entrySet().stream().filter(e -> order.isBuy() ?
+                        e.getKey() <= order.getPrice() :
+                        e.getKey() >= order.getPrice())
+                .map(Map.Entry::getValue)
+                .mapToInt(PriceLevel::getTotalQuantity)
+                .sum() >= order.getMinQuantity();
     }
 
     private boolean shouldTriggerStopOrder(Order order) {
@@ -208,6 +230,7 @@ public class OrderBook {
         orderIdByClientOrderId.clear();
         priceLevelByOrderId.clear();
         stopOrders.clear();
+        icebergOrders.clear();
         orderUpdateMap.clear();
         currentTopBid = Optional.empty();
         currentTopAsk = Optional.empty();

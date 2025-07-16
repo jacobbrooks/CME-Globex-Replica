@@ -26,16 +26,16 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
     private final Security thresholdProRataWithLMM = Security.builder().id(1)
             .matchingAlgorithm(MatchingAlgorithm.ThresholdProRataWithLMM).topMin(25).topMax(250).proRataMin(1).build();
 
-    private final OrderBook fifoOrderBook = new OrderBook(fifo);
-    private final OrderBook lmmOrderBook = new OrderBook(lmm);
-    private final OrderBook lmmTopOrderBook = new OrderBook(lmmTop);
-    private final OrderBook proRataOrderBook = new OrderBook(proRata);
-    private final OrderBook allocationOrderBook = new OrderBook(allocation);
-    private final OrderBook configurableOrderBook = new OrderBook(configurable);
-    private final OrderBook configurableNoFIFOOrderBook = new OrderBook(configurableNoFIFO);
-    private final OrderBook configurableNoProRataOrderBook = new OrderBook(configurableNoProRata);
-    private final OrderBook thresholdProRataOrderBook = new OrderBook(thresholdProRata);
-    private final OrderBook thresholdProRataWithLMMOrderBook = new OrderBook(thresholdProRataWithLMM);
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, null);
+    private final OrderBook lmmOrderBook = new OrderBook(lmm, null);
+    private final OrderBook lmmTopOrderBook = new OrderBook(lmmTop, null);
+    private final OrderBook proRataOrderBook = new OrderBook(proRata, null);
+    private final OrderBook allocationOrderBook = new OrderBook(allocation, null);
+    private final OrderBook configurableOrderBook = new OrderBook(configurable, null);
+    private final OrderBook configurableNoFIFOOrderBook = new OrderBook(configurableNoFIFO, null);
+    private final OrderBook configurableNoProRataOrderBook = new OrderBook(configurableNoProRata, null);
+    private final OrderBook thresholdProRataOrderBook = new OrderBook(thresholdProRata, null);
+    private final OrderBook thresholdProRataWithLMMOrderBook = new OrderBook(thresholdProRataWithLMM, null);
 
     @Test
     public void testThresholdProRataWithLMMOrderBook() {
