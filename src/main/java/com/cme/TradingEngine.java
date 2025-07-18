@@ -27,6 +27,7 @@ public class TradingEngine implements OrderRequestService {
                     ordersToCancel.remove(0);
                     if(orderBooksByOrderId.containsKey(cancelOrderId)) {
                         orderBooksByOrderId.get(cancelOrderId).cancelOrder(cancelOrderId);
+                        orderBooksByOrderId.remove(cancelOrderId);
                     } else {
                         ordersToAdd.removeIf(o -> o.getId() == cancelOrderId);
                     }

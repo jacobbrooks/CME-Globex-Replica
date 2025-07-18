@@ -1,4 +1,8 @@
-package com.cme;
+package com.cme.matchcomparators;
+
+import com.cme.MatchStep;
+import com.cme.MatchingAlgorithm;
+import com.cme.Order;
 
 import java.util.Comparator;
 import java.util.HashMap;

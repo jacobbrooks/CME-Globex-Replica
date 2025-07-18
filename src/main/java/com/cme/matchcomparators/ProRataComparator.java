@@ -1,4 +1,6 @@
-package com.cme;
+package com.cme.matchcomparators;
+
+import com.cme.Order;
 
 public class ProRataComparator extends FIFOComparator {
 
