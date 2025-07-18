@@ -144,6 +144,10 @@ public class Order {
         return orderType == OrderType.StopWithProtection;
     }
 
+    public boolean isIceberg() {
+        return displayQuantity == 0;
+    }
+
     //public Order to
 
     public String toString() {

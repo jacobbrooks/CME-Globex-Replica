@@ -13,7 +13,7 @@ public class OrderQualifiersTest extends OrderBookTest {
             .matchingAlgorithm(MatchingAlgorithm.FIFO)
             .build();
 
-    private final OrderGateway gateway = new OrderGateway();
+    private final TradingEngine gateway = new TradingEngine();
     private final OrderBook fifoOrderBook = new OrderBook(fifo, gateway);
 
     @Test
@@ -35,6 +35,9 @@ public class OrderQualifiersTest extends OrderBookTest {
 
         asks.forEach(fifoOrderBook::addOrder);
         fifoOrderBook.addOrder(bid);
+
+        // Wait a little to make sure all slices are matched (happens in another thread)
+        hold(10);
 
         final List<MatchEvent> matches = asks.stream()
                 .flatMap(a -> fifoOrderBook.getOrderUpdates(a.getId()).stream()

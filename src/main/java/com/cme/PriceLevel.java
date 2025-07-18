@@ -17,17 +17,17 @@ public class PriceLevel {
     private int totalQuantity;
 
     private final MatchStepComparator matchStepComparator;
-    private final OrderScheduler orderScheduler;
+    private final OrderRequestService orderRequestService;
 
     private final Map<Integer, Order> icebergOrders = new HashMap<>();
 
-    public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator, OrderScheduler orderScheduler) {
+    public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator, OrderRequestService orderRequestService) {
         this.matchingAlgorithm = matchingAlgorithm;
         this.matchStepComparator = matchStepComparator;
         this.ordersById = new HashMap<Integer, Order>();
         this.price = price;
         this.ordersByMatchStep = new ArrayList<>();
-        this.orderScheduler = orderScheduler;
+        this.orderRequestService = orderRequestService;
         IntStream.range(0, matchStepComparator.getNumberOfSteps()).forEach(i -> ordersByMatchStep.add(new PriorityQueue<OrderContainer>()));
     }
 
@@ -67,7 +67,7 @@ public class PriceLevel {
             }
 
             if(match.isFilled() && match.isSlice() && !icebergOrders.get(match.getOriginId()).isFilled()) {
-                orderScheduler.submit(icebergOrders.get(match.getOriginId()).getNewSlice());
+                orderRequestService.submit(icebergOrders.get(match.getOriginId()).getNewSlice());
                 if(icebergOrders.get(match.getOriginId()).isFilled()) {
                     icebergOrders.remove(match.getOriginId());
                 }
@@ -93,6 +93,15 @@ public class PriceLevel {
         prepareOrdersForNextAggressor();
 
         return matches;
+    }
+
+    public void cancelOrder(int orderId) {
+        if(!ordersById.get(orderId).isIceberg()) {
+            totalQuantity -= ordersById.get(orderId).getRemainingQuantity();
+        }
+        ordersByMatchStep.forEach(q -> q.removeIf(oc -> oc.getOrder().getId() == orderId));
+        ordersById.remove(orderId);
+        prepareOrdersForNextAggressor();
     }
 
     private void prepareForNextMatchStep(Order order, int nextStep, int[] initialQueueSizes) {
@@ -144,7 +153,7 @@ public class PriceLevel {
         return order.getRemainingQuantity();
     }
 
-    public void prepareOrdersForNextAggressor() {
+    private void prepareOrdersForNextAggressor() {
         if (matchingAlgorithm == MatchingAlgorithm.FIFO) {
             return;
         }
@@ -199,6 +208,7 @@ public class PriceLevel {
 
     public void addIceberg(Order iceberg) {
         icebergOrders.put(iceberg.getId(), iceberg);
+        ordersById.put(iceberg.getId(), iceberg);
     }
 
     private void addOrderToProperQueues(Order order) {

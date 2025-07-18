@@ -20,16 +20,16 @@ public class OrderBook {
 
     private final PriorityQueue<Order> stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
     private final Map<Integer, Order> icebergOrders = new HashMap<>();
-    private final OrderScheduler orderScheduler;
+    private final OrderRequestService orderRequestService;
 
     private Optional<Order> topBid = Optional.empty();
     private Optional<Order> topAsk = Optional.empty();
 
     private long lastTradedPrice;
 
-    public OrderBook(Security security, OrderScheduler orderScheduler) {
+    public OrderBook(Security security, OrderRequestService orderRequestService) {
         this.security = security;
-        this.orderScheduler = orderScheduler;
+        this.orderRequestService = orderRequestService;
         this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
     }
 
@@ -123,7 +123,7 @@ public class OrderBook {
 
         if (!finalOrder.isFilled() && finalOrder.getTimeInForce() != TimeInForce.FAK) {
             final PriceLevel addTo = resting.computeIfAbsent(finalOrder.getPrice(), k -> new PriceLevel(finalOrder.getPrice(),
-                    security.getMatchingAlgorithm(), matchStepComparator, orderScheduler));
+                    security.getMatchingAlgorithm(), matchStepComparator, orderRequestService));
 
             if(finalOrder.isSlice()) {
                 addTo.addIceberg(icebergOrders.get(finalOrder.getOriginId()));
@@ -156,7 +156,7 @@ public class OrderBook {
         }
 
         if(finalOrder.isFilled() && finalOrder.isSlice() && !icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
-            orderScheduler.submit(icebergOrders.get(finalOrder.getOriginId()).getNewSlice());
+            orderRequestService.submit(icebergOrders.get(finalOrder.getOriginId()).getNewSlice());
             if(icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
                 icebergOrders.remove(finalOrder.getOriginId());
             }
@@ -178,6 +178,28 @@ public class OrderBook {
             addOrder(o);
         });
 
+    }
+
+    public void cancelOrder(int orderId) {
+        if(priceLevelByOrderId.containsKey(orderId)) {
+            final boolean isTopBid = topBid.map(b -> b.getId() == orderId).orElse(false);
+            final boolean isTopAsk = topAsk.map(b -> b.getId() == orderId).orElse(false);
+
+            orderIdByClientOrderId.remove(priceLevelByOrderId.get(orderId).getOrdersById().get(orderId).getClientOrderId());
+            priceLevelByOrderId.get(orderId).cancelOrder(orderId);
+            priceLevelByOrderId.remove(orderId);
+
+            if(isTopBid) {
+                topBid = Optional.empty();
+            } else if(isTopAsk) {
+                topAsk = Optional.empty();
+            }
+
+            return;
+        }
+
+        stopOrders.removeIf(o -> o.getId() == orderId);
+        icebergOrders.remove(orderId);
     }
 
     private boolean minQuantityMet(Order order, TreeMap<Long, PriceLevel> matchAgainst) {
