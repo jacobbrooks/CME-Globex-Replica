@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 
-public class TradingEngine implements OrderRequestService {
+public class TradingEngine implements OrderService {
 
     final PriorityBlockingQueue<Order> ordersToAdd = new PriorityBlockingQueue<>(1, Comparator.comparing(Order::getTimestamp));
     final ConcurrentLinkedQueue<Integer> ordersToCancel = new ConcurrentLinkedQueue<>();

@@ -145,10 +145,8 @@ public class Order {
     }
 
     public boolean isIceberg() {
-        return displayQuantity == 0;
+        return displayQuantity > 0;
     }
-
-    //public Order to
 
     public String toString() {
         return "#" + id + " - " + getRemainingQuantity() + " @" + timestamp + "ms, " + lmmAllocationPercentage + "%";

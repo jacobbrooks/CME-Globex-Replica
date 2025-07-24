@@ -21,16 +21,16 @@ public class OrderBook {
 
     private final PriorityQueue<Order> stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
     private final Map<Integer, Order> icebergOrders = new HashMap<>();
-    private final OrderRequestService orderRequestService;
+    private final OrderService orderService;
 
     private Optional<Order> topBid = Optional.empty();
     private Optional<Order> topAsk = Optional.empty();
 
     private long lastTradedPrice;
 
-    public OrderBook(Security security, OrderRequestService orderRequestService) {
+    public OrderBook(Security security, OrderService orderService) {
         this.security = security;
-        this.orderRequestService = orderRequestService;
+        this.orderService = orderService;
         this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
     }
 
@@ -124,7 +124,7 @@ public class OrderBook {
 
         if (!finalOrder.isFilled() && finalOrder.getTimeInForce() != TimeInForce.FAK) {
             final PriceLevel addTo = resting.computeIfAbsent(finalOrder.getPrice(), k -> new PriceLevel(finalOrder.getPrice(),
-                    security.getMatchingAlgorithm(), matchStepComparator, orderRequestService));
+                    security.getMatchingAlgorithm(), matchStepComparator, orderService));
 
             if(finalOrder.isSlice()) {
                 addTo.addIceberg(icebergOrders.get(finalOrder.getOriginId()));
@@ -157,7 +157,7 @@ public class OrderBook {
         }
 
         if(finalOrder.isFilled() && finalOrder.isSlice() && !icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
-            orderRequestService.submit(icebergOrders.get(finalOrder.getOriginId()).getNewSlice());
+            orderService.submit(icebergOrders.get(finalOrder.getOriginId()).getNewSlice());
             if(icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
                 icebergOrders.remove(finalOrder.getOriginId());
             }

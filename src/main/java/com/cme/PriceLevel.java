@@ -18,17 +18,17 @@ public class PriceLevel {
     private int totalQuantity;
 
     private final MatchStepComparator matchStepComparator;
-    private final OrderRequestService orderRequestService;
+    private final OrderService orderService;
 
     private final Map<Integer, Order> icebergOrders = new HashMap<>();
 
-    public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator, OrderRequestService orderRequestService) {
+    public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator, OrderService orderService) {
         this.matchingAlgorithm = matchingAlgorithm;
         this.matchStepComparator = matchStepComparator;
         this.ordersById = new HashMap<Integer, Order>();
         this.price = price;
         this.ordersByMatchStep = new ArrayList<>();
-        this.orderRequestService = orderRequestService;
+        this.orderService = orderService;
         IntStream.range(0, matchStepComparator.getNumberOfSteps()).forEach(i -> ordersByMatchStep.add(new PriorityQueue<OrderContainer>()));
     }
 
@@ -68,7 +68,7 @@ public class PriceLevel {
             }
 
             if(match.isFilled() && match.isSlice() && !icebergOrders.get(match.getOriginId()).isFilled()) {
-                orderRequestService.submit(icebergOrders.get(match.getOriginId()).getNewSlice());
+                orderService.submit(icebergOrders.get(match.getOriginId()).getNewSlice());
                 if(icebergOrders.get(match.getOriginId()).isFilled()) {
                     icebergOrders.remove(match.getOriginId());
                 }
@@ -102,7 +102,9 @@ public class PriceLevel {
         }
         ordersByMatchStep.forEach(q -> q.removeIf(oc -> oc.getOrder().getId() == orderId));
         ordersById.remove(orderId);
-        prepareOrdersForNextAggressor();
+        if (matchStepComparator.hasStep(MatchStep.ProRata)) {
+            updateProrationsAndResort();
+        }
     }
 
     private void prepareForNextMatchStep(Order order, int nextStep, int[] initialQueueSizes) {
@@ -246,6 +248,10 @@ public class PriceLevel {
         @Override
         public int compareTo(OrderContainer other) {
             return matchStepComparator.compare(order, other.getOrder(), matchStepIndex);
+        }
+
+        public String toString() {
+            return order.toString();
         }
     }
 

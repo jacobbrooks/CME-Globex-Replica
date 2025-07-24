@@ -13,14 +13,14 @@ public class OrderQualifiersTest extends OrderBookTest {
             .matchingAlgorithm(MatchingAlgorithm.FIFO)
             .build();
 
-    private final TradingEngine gateway = new TradingEngine();
-    private final OrderBook fifoOrderBook = new OrderBook(fifo, gateway);
+    private final TradingEngine engine = new TradingEngine();
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, engine);
 
     @Test
     public void testIcebergOrder() {
         fifoOrderBook.clear();
-        gateway.addOrderBook(fifoOrderBook);
-        gateway.start();
+        engine.addOrderBook(fifoOrderBook);
+        engine.start();
 
         // Create resting limit orders
         final List<Order> asks = Stream.of(200L, 300L)
@@ -72,7 +72,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .buy(true).price(300L).initialQuantity(2).minQuantity(2)
                 .timeInForce(TimeInForce.FAK).build();
 
-        asks.forEach(order -> fifoOrderBook.addOrder(order));
+        asks.forEach(fifoOrderBook::addOrder);
 
         // Order should hit 200, 300 price levels and be left with 1 lot remaining, which will
         // be ignored due to the order expiring
@@ -114,7 +114,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .buy(true).price(300L).initialQuantity(3).minQuantity(3)
                 .timeInForce(TimeInForce.FAK).build();
 
-        asks.forEach(order -> fifoOrderBook.addOrder(order));
+        asks.forEach(fifoOrderBook::addOrder);
 
         // The summed qty of the 200 & 300 price levels does not meet the bid's min qty
         fifoOrderBook.addOrder(bid);
@@ -139,7 +139,7 @@ public class OrderQualifiersTest extends OrderBookTest {
         final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
                 .buy(true).price(300L).initialQuantity(3).timeInForce(TimeInForce.FAK).build();
 
-        asks.forEach(order -> fifoOrderBook.addOrder(order));
+        asks.forEach(fifoOrderBook::addOrder);
 
         // Order should hit 200, 300 price levels and be left with 1 lot remaining, which will
         // be ignored due to the order expiring
