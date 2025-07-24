@@ -15,15 +15,19 @@ public class OrderBook {
     private final TreeMap<Long, PriceLevel> asks = new TreeMap<>();
 
     @Getter
+    private final Map<Integer, Order> orders = new HashMap<>();
     private final Map<Integer, PriceLevel> priceLevelByOrderId = new HashMap<>();
     private final Map<String, Integer> orderIdByClientOrderId = new HashMap<>();
     private final Map<Integer, List<OrderUpdate>> orderUpdateMap = new HashMap<>();
 
     private final PriorityQueue<Order> stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
     private final Map<Integer, Order> icebergOrders = new HashMap<>();
+
     private final OrderService orderService;
 
+    @Getter
     private Optional<Order> topBid = Optional.empty();
+    @Getter
     private Optional<Order> topAsk = Optional.empty();
 
     private long lastTradedPrice;
@@ -49,6 +53,8 @@ public class OrderBook {
             ack.setStatus(OrderStatus.Reject);
             return;
         }
+
+        orders.put(order.getId(), order);
 
         final TreeMap<Long, PriceLevel> matchAgainst = order.isBuy() ? asks : bids;
         final TreeMap<Long, PriceLevel> resting = order.isBuy() ? bids : asks;
@@ -89,8 +95,7 @@ public class OrderBook {
             orderUpdateMap.get(finalOrder.isSlice() ? finalOrder.getOriginId() : finalOrder.getId()).add(aggressorFillNotice);
 
             matches.forEach(m -> {
-                final int remainingQty = Optional.ofNullable(priceLevelByOrderId.get(m.getRestingOrderId()).getOrder(m.getRestingOrderId()))
-                        .map(Order::getRemainingQuantity).orElse(0);
+                final int remainingQty = Optional.ofNullable(orders.get(m.getRestingOrderId())).map(Order::getRemainingQuantity).orElse(0);
                 final OrderUpdate restingFillNotice = new OrderUpdate(remainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, finalOrder.getOrderType());
                 restingFillNotice.addMatches(lastTradedPrice, List.of(m));
                 restingFillNotice.setRemainingQuantity(remainingQty);
@@ -163,6 +168,10 @@ public class OrderBook {
             }
         }
 
+        if(order.isFilled()) {
+            orders.remove(order.getId());
+        }
+
         if(!lastTradedPriceUpdated) {
             return;
         }
@@ -178,29 +187,38 @@ public class OrderBook {
             o.setOrderType(OrderType.Limit);
             addOrder(o);
         });
-
     }
 
     public void cancelOrder(int orderId) {
-        if(priceLevelByOrderId.containsKey(orderId)) {
-            final boolean isTopBid = topBid.map(b -> b.getId() == orderId).orElse(false);
-            final boolean isTopAsk = topAsk.map(b -> b.getId() == orderId).orElse(false);
+        stopOrders.removeIf(o -> o.getId() == orderId);
+        icebergOrders.remove(orderId);
 
-            orderIdByClientOrderId.remove(priceLevelByOrderId.get(orderId).getOrdersById().get(orderId).getClientOrderId());
-            priceLevelByOrderId.get(orderId).cancelOrder(orderId);
-            priceLevelByOrderId.remove(orderId);
-
-            if(isTopBid) {
-                topBid = Optional.empty();
-            } else if(isTopAsk) {
-                topAsk = Optional.empty();
-            }
-
+        if(!orders.containsKey(orderId)) {
             return;
         }
 
-        stopOrders.removeIf(o -> o.getId() == orderId);
-        icebergOrders.remove(orderId);
+        final int originId = orders.get(orderId).getOriginId();
+
+        orderIdByClientOrderId.remove(orders.get(orderId).getClientOrderId());
+        Optional.ofNullable(orders.get(originId)).map(Order::getClientOrderId).ifPresent(orderIdByClientOrderId::remove);
+
+        // Cancel the order or any child slice if the order is an iceberg
+        priceLevelByOrderId.entrySet().stream()
+                .filter(e -> e.getKey() == orderId || e.getKey() == originId)
+                .findFirst()
+                .ifPresent(e -> e.getValue().cancelOrder(e.getKey()));
+
+        priceLevelByOrderId.entrySet().removeIf(e -> e.getKey() == orderId || e.getKey() == originId);
+        orders.entrySet().removeIf(e -> e.getKey() == orderId || e.getKey() == originId);
+
+        final boolean isTopBid = topBid.map(b -> b.getId() == orderId).orElse(false);
+        final boolean isTopAsk = topAsk.map(b -> b.getId() == orderId).orElse(false);
+
+        if(isTopBid) {
+            topBid = Optional.empty();
+        } else if(isTopAsk) {
+            topAsk = Optional.empty();
+        }
     }
 
     private boolean minQuantityMet(Order order, TreeMap<Long, PriceLevel> matchAgainst) {
@@ -237,7 +255,7 @@ public class OrderBook {
 
     public Order getOrder(String clientOrderId) {
         final int orderId = orderIdByClientOrderId.get(clientOrderId);
-        return priceLevelByOrderId.get(orderId).getOrder(orderId);
+        return orders.get(orderId);
     }
 
     public List<Long> getBidPrices() { return bids.keySet().stream().toList(); }
@@ -247,6 +265,7 @@ public class OrderBook {
     public void clear() {
         bids.clear();
         asks.clear();
+        orders.clear();
         orderIdByClientOrderId.clear();
         priceLevelByOrderId.clear();
         stopOrders.clear();
