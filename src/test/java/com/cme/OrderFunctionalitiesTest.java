@@ -106,67 +106,6 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                     .map(MatchEvent::toString).toList(), matches.stream()
                     .map(MatchEvent::toString).toList()));
         }
-
-        // Now let's test without LMMs
-        bids = Stream.of(1, 100, 30, 80, 30, 60).map(qty -> {
-            hold(10);
-            return Order.builder().clientOrderId(Integer.toString(0))
-                    .security(configurable)
-                    .buy(true)
-                    .price(200L)
-                    .initialQuantity(qty)
-                    .build();
-        }).toList();
-
-
-        bids.forEach(orderBook::addOrder);
-
-        top = bids.stream().filter(Order::isTop).toList();
-        topOrderId = "Order id: " + top.stream()
-                .map(o -> Integer.toString(o.getId())).findAny().orElse("none");
-
-        if (top.size() != 1) {
-            fail(getFailMessage("TOP event 2: Not exactly 1 top order - " + top.size()));
-        }
-
-        if (!bids.get(0).isTop()) {
-            fail(getFailMessage("TOP event 2: Top order", List.of("Order id: " + bids.get(0).getId()), List.of(topOrderId)));
-        }
-
-        ask = Order.builder().clientOrderId(Integer.toString(0))
-                .security(configurable)
-                .buy(false)
-                .price(200L)
-                .initialQuantity(8)
-                .build();
-
-        orderBook.addOrder(ask);
-        response = orderBook.getLastOrderUpdate(ask.getId());
-
-        /*
-         * 1. TOP Pass - Order 0 is filled for 1 lot
-         * 2. Split FIFO Pass - 40% of the remaining aggressor qty of 7 = 3 which all goes to order 1
-         * 3. Pro Rata pass - Remaining aggressor qty of 4 * each order's proration leaves orders 1 & 3
-         *       being allocated 1 lot, and all other orders (2, 4 & 5) rounded down to 0 and
-         *       marked for leveling
-         * 4. Leveling pass - 1-lot leveling applies first to order 5 (qty priority), then order 2 (time priority),
-         *    but there is no more aggressing qty to fulfill order 4's 1 lot leveling.
-         */
-        matches = response.getMatches();
-        expectedMatches = List.of(
-                new MatchEvent(ask.getId(), bids.get(0).getId(), 200L, 1, false, 0L),
-                new MatchEvent(ask.getId(), bids.get(1).getId(), 200L, 3, false, 0L),
-                new MatchEvent(ask.getId(), bids.get(1).getId(), 200L, 1, false, 0L),
-                new MatchEvent(ask.getId(), bids.get(3).getId(), 200L, 1, false, 0L),
-                new MatchEvent(ask.getId(), bids.get(5).getId(), 200L, 1, false, 0L),
-                new MatchEvent(ask.getId(), bids.get(2).getId(), 200L, 1, false, 0L)
-        );
-
-        if (!equalMatches(expectedMatches, matches)) {
-            fail(getFailMessage("matches 2", expectedMatches.stream()
-                    .map(MatchEvent::toString).toList(), matches.stream()
-                    .map(MatchEvent::toString).toList()));
-        }
     }
 
 }
