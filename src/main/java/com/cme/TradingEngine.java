@@ -50,7 +50,9 @@ public class TradingEngine implements OrderService {
     }
 
     @Override
-    public void cancel(int orderId) {  }
+    public void cancel(int orderId) {
+        ordersToCancel.add(orderId);
+    }
 
     public void printBook(int securityId) {
         System.out.println(orderBooksBySecurityId.get(securityId).toString());

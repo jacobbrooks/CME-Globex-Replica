@@ -33,8 +33,11 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .buy(true).price(300L).initialQuantity(4).displayQuantity(1)
                 .build();
 
-        asks.forEach(fifoOrderBook::addOrder);
-        fifoOrderBook.addOrder(bid);
+        asks.forEach(engine::submit);
+
+        hold(10);
+
+        engine.submit(bid);
 
         // Wait a little to make sure all slices are matched (happens in another thread)
         hold(10);

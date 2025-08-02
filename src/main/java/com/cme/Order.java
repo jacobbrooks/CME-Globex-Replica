@@ -57,6 +57,9 @@ public class Order {
 
     public void fill(int quantity, MatchStep matchStep) {
         filledQuantity += quantity;
+        if(isIceberg()) {
+            return;
+        }
         if(matchStep == null) {
             return;
         }
@@ -100,7 +103,6 @@ public class Order {
         if(this.slice || isFilled()) {
             return null;
         }
-        filledQuantity += displayQuantity;
         return builder().originId(id).timeInForce(timeInForce).clientOrderId(clientOrderId)
                 .security(security).triggerPrice(triggerPrice).initialQuantity(displayQuantity)
                 .minQuantity(minQuantity).buy(buy).orderType(orderType).price(price).slice(true).build();

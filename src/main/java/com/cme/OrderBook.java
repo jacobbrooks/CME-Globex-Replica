@@ -20,7 +20,7 @@ public class OrderBook {
     private final Map<String, Integer> orderIdByClientOrderId = new HashMap<>();
     private final Map<Integer, List<OrderUpdate>> orderUpdateMap = new HashMap<>();
 
-    private final PriorityQueue<Order> stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
+    private final Queue<Order> stopOrders = new PriorityQueue<>(Comparator.comparingLong(Order::getTimestamp));
     private final Map<Integer, Order> icebergOrders = new HashMap<>();
 
     private final OrderService orderService;
@@ -69,7 +69,7 @@ public class OrderBook {
             return;
         }
 
-        if(order.getDisplayQuantity() > 0) {
+        if(order.isIceberg()) {
             icebergOrders.put(order.getId(), order);
         }
 
@@ -100,6 +100,10 @@ public class OrderBook {
                 restingFillNotice.addMatches(lastTradedPrice, List.of(m));
                 restingFillNotice.setRemainingQuantity(remainingQty);
                 orderUpdateMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(restingFillNotice);
+                if(Optional.ofNullable(orders.get(m.getRestingOrderId())).map(Order::isFilled).orElse(true)) {
+                    orders.remove(m.getRestingOrderId());
+                    priceLevelByOrderId.remove(m.getRestingOrderId());
+                }
             });
 
             if (best.get().getTotalQuantity() == 0) {
@@ -161,15 +165,24 @@ public class OrderBook {
             orderUpdateMap.get(finalOrder.getId()).add(elimination);
         }
 
-        if(finalOrder.isFilled() && finalOrder.isSlice() && !icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
-            orderService.submit(icebergOrders.get(finalOrder.getOriginId()).getNewSlice());
-            if(icebergOrders.get(finalOrder.getOriginId()).isFilled()) {
-                icebergOrders.remove(finalOrder.getOriginId());
-            }
+        if(finalOrder.isSlice()) {
+            icebergOrders.get(finalOrder.getOriginId()).fill(finalOrder.getFilledQuantity());
         }
 
-        if(order.isFilled()) {
-            orders.remove(order.getId());
+        final boolean parentIcebergFilled = Optional.ofNullable(icebergOrders.get(finalOrder.getOriginId()))
+                .map(Order::isFilled)
+                .orElse(true);
+
+        if(finalOrder.isFilled() && finalOrder.isSlice() && !parentIcebergFilled) {
+            orderService.submit(icebergOrders.get(finalOrder.getOriginId()).getNewSlice());
+        }
+
+        if (parentIcebergFilled) {
+            icebergOrders.remove(finalOrder.getOriginId());
+        }
+
+        if(finalOrder.isFilled()) {
+            orders.remove(finalOrder.getId());
         }
 
         if(!lastTradedPriceUpdated) {
@@ -197,19 +210,23 @@ public class OrderBook {
             return;
         }
 
-        final int originId = orders.get(orderId).getOriginId();
-
         orderIdByClientOrderId.remove(orders.get(orderId).getClientOrderId());
-        Optional.ofNullable(orders.get(originId)).map(Order::getClientOrderId).ifPresent(orderIdByClientOrderId::remove);
 
         // Cancel the order or any child slice if the order is an iceberg
         priceLevelByOrderId.entrySet().stream()
-                .filter(e -> e.getKey() == orderId || e.getKey() == originId)
+                .filter(e -> e.getKey() == orderId || orders.get(e.getKey()).getOriginId() == orderId)
                 .findFirst()
-                .ifPresent(e -> e.getValue().cancelOrder(e.getKey()));
+                .ifPresent(e -> {
+                    e.getValue().cancelOrder(e.getKey());
+                    if(e.getValue().isEmpty() && orders.get(e.getKey()).isBuy()) {
+                        bids.remove(e.getValue().getPrice());
+                    } else if(e.getValue().isEmpty()) {
+                        asks.remove(e.getValue().getPrice());
+                    }
+                });
 
-        priceLevelByOrderId.entrySet().removeIf(e -> e.getKey() == orderId || e.getKey() == originId);
-        orders.entrySet().removeIf(e -> e.getKey() == orderId || e.getKey() == originId);
+        priceLevelByOrderId.entrySet().removeIf(e -> e.getKey() == orderId || orders.get(e.getKey()).getOriginId() == orderId);
+        orders.entrySet().removeIf(e -> e.getKey() == orderId || orders.get(e.getKey()).getOriginId() == orderId);
 
         final boolean isTopBid = topBid.map(b -> b.getId() == orderId).orElse(false);
         final boolean isTopAsk = topAsk.map(b -> b.getId() == orderId).orElse(false);

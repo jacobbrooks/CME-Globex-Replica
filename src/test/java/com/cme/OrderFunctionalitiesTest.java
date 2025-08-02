@@ -19,7 +19,65 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
             .matchingAlgorithm(MatchingAlgorithm.Configurable)
             .proRataMin(2).splitPercentage(40).build();
 
+    private final Security fifo = Security.builder().id(2)
+            .matchingAlgorithm(MatchingAlgorithm.FIFO)
+            .build();
+
+    private final TradingEngine engine = new TradingEngine();
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, engine);
     private final OrderBook orderBook = new OrderBook(configurable, new TradingEngine());
+
+    @Test
+    public void testCancelIcebergOrder() {
+        fifoOrderBook.clear();
+        engine.addOrderBook(fifoOrderBook);
+        engine.start();
+
+        // Create resting limit orders
+        final List<Order> asks = Stream.of(new int[]{200, 2}, new int[]{300, 1})
+                .map(priceQty -> Order.builder().clientOrderId(Integer.toString(0))
+                        .security(fifo).buy(false).price((long) priceQty[0]).initialQuantity(priceQty[1])
+                        .build()).toList();
+
+        // Create iceberg bid with display quantity 1
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(300L).initialQuantity(4).displayQuantity(1)
+                .build();
+
+        asks.forEach(engine::submit);
+
+        hold(10);
+
+        engine.submit(bid);
+
+        // Wait a little to make sure all slices are matched (happens in another thread)
+        hold(10);
+
+        final List<MatchEvent> matches = asks.stream()
+                .flatMap(a -> fifoOrderBook.getOrderUpdates(a.getId()).stream()
+                        .filter(u -> !u.isEmpty())
+                        .flatMap(u -> u.getMatches().stream())).toList();
+
+        // The id of each iceberg child/slice should be consecutive +1 increments of the parent iceberg
+        final List<MatchEvent> expectedMatches = List.of(new MatchEvent(bid.getId() + 1, asks.get(0).getId(), 200L, 1, true, 0L),
+                new MatchEvent(bid.getId() + 2, asks.get(0).getId(), 200L, 1, true, 0L),
+                new MatchEvent(bid.getId() + 3, asks.get(1).getId(), 300L, 1, true, 0L));
+
+        if (!equalMatches(expectedMatches, matches)) {
+            fail(getFailMessage("matches", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
+        }
+
+        // Since the aggressing bid had 4 lots and there were only 3 lots resting, there should be a slice left sitting on the book
+        assertTrue(fifoOrderBook.getOrders().containsKey(bid.getId() + 4) && !fifoOrderBook.isEmpty());
+
+        engine.cancel(bid.getId());
+
+        hold(10);
+
+        assertTrue(fifoOrderBook.isEmpty());
+        assertFalse(fifoOrderBook.getOrders().containsKey(bid.getId()));
+        assertFalse(fifoOrderBook.getOrders().containsKey(bid.getId() + 4));
+    }
 
     @Test
     public void testCancelTOPOrder() {

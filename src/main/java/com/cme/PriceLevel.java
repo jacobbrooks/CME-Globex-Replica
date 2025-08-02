@@ -222,7 +222,7 @@ public class PriceLevel {
     }
 
     public boolean isEmpty() {
-        return ordersById.isEmpty();
+        return ordersByMatchStep.stream().allMatch(AbstractCollection::isEmpty);
     }
 
     public String toString() {
