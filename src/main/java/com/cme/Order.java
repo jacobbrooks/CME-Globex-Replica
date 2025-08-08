@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.ZonedDateTime;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Getter
@@ -26,6 +27,7 @@ public class Order {
     private final int minQuantity;
     private final int displayQuantity;
     private final boolean buy;
+    private final ZonedDateTime expiration;
 
     @Setter
     @Builder.Default
@@ -144,6 +146,16 @@ public class Order {
 
     public boolean isStopWithProtection() {
         return orderType == OrderType.StopWithProtection;
+    }
+
+    /*
+     * This method assumes that whatever time component being passed in as a part of the DateTime is the end of the trading day
+     * i.e. we are not checking a specific time to determine expiration - just date.
+     */
+    public boolean shouldExpireToday(ZonedDateTime eod) {
+        return timeInForce == TimeInForce.Day
+                || (timeInForce == TimeInForce.GTD && eod.isBefore(expiration)
+                && expiration.getDayOfMonth() - eod.getDayOfMonth() == 1);
     }
 
     public boolean isIceberg() {

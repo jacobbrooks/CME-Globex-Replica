@@ -1,7 +1,10 @@
 package com.cme;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -16,11 +19,42 @@ public class OrderQualifiersTest extends OrderBookTest {
     private final TradingEngine engine = new TradingEngine();
     private final OrderBook fifoOrderBook = new OrderBook(fifo, engine);
 
+    public OrderQualifiersTest() {
+        engine.addOrderBook(fifoOrderBook);
+        engine.start();
+    }
+
+    @Test
+    public void testDayOrderExpiration() {
+        // We need local objects for this test with an unstarted engine to have control over time mocking
+        final TradingEngine localEngine = new TradingEngine();
+        final OrderBook localOrderBook = new OrderBook(fifo, localEngine);
+        localEngine.addOrderBook(localOrderBook);
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(1).timeInForce(TimeInForce.Day)
+                .build();
+
+        // Set the end of the trading day to 2 seconds from now and see if the engine's internal scheduler correctly cancels the bid
+        localEngine.submit(bid);
+        localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
+        localEngine.start();
+
+        hold(10);
+
+        assertFalse(localEngine.getOrderBooksByOrderId().isEmpty());
+        assertFalse(localOrderBook.isEmpty());
+
+        hold(2000);
+
+        assertTrue(localEngine.getOrderBooksByOrderId().isEmpty());
+        assertTrue(localOrderBook.isEmpty());
+        assertSame(OrderStatus.Expired, localOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+    }
+
     @Test
     public void testIcebergOrder() {
         fifoOrderBook.clear();
-        engine.addOrderBook(fifoOrderBook);
-        engine.start();
 
         // Create resting limit orders
         final List<Order> asks = Stream.of(200L, 300L)

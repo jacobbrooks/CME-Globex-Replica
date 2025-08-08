@@ -52,7 +52,7 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
                             .build();
                 }).toList();
 
-        bids.forEach(b -> thresholdProRataWithLMMOrderBook.addOrder(b));
+        bids.forEach(thresholdProRataWithLMMOrderBook::addOrder);
 
         final List<Order> top = bids.stream().filter(Order::isTop).toList();
         final String topOrderId = "Order id: " + top.stream()

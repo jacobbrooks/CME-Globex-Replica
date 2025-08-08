@@ -3,6 +3,7 @@ package com.cme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -99,9 +100,9 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         bids.forEach(orderBook::addOrder);
 
         // Cancel TOP order
-        orderBook.cancelOrder(bids.get(0).getId());
+        orderBook.cancelOrder(bids.get(0).getId(), false);
 
-        assertTrue(orderBook.getTopBid().isEmpty());
+        assertTrue(Optional.ofNullable(orderBook.getTopBid().get()).isEmpty());
 
         Order ask = Order.builder().clientOrderId(Integer.toString(0))
                 .security(configurable)
@@ -174,7 +175,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         // We will immediately cancel the 2nd bid with the hope that the state of the book remains consistent
         // allowing the rest of the test to pass
-        orderBook.cancelOrder(bids.get(1).getId());
+        orderBook.cancelOrder(bids.get(1).getId(), false);
 
         List<Order> top = bids.stream().filter(Order::isTop).toList();
         String topOrderId = "Order id: " + top.stream()

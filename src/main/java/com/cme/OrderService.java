@@ -2,5 +2,5 @@ package com.cme;
 
 public interface OrderService {
     public void submit(Order order);
-    public void cancel(int orderId);
+    public void cancel(OrderCancel orderCancel);
 }
