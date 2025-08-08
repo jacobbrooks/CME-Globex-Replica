@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,7 +28,7 @@ public class Order {
     private final int minQuantity;
     private final int displayQuantity;
     private final boolean buy;
-    private final ZonedDateTime expiration;
+    private final LocalDate expiration;
 
     @Setter
     @Builder.Default
@@ -102,7 +103,7 @@ public class Order {
     }
 
     public Order getNewSlice() {
-        if(this.slice || isFilled()) {
+        if(isSlice() || isFilled()) {
             return null;
         }
         return builder().originId(id).timeInForce(timeInForce).clientOrderId(clientOrderId)
@@ -153,9 +154,7 @@ public class Order {
      * i.e. we are not checking a specific time to determine expiration - just date.
      */
     public boolean shouldExpireToday(ZonedDateTime eod) {
-        return timeInForce == TimeInForce.Day
-                || (timeInForce == TimeInForce.GTD && eod.isBefore(expiration)
-                && expiration.getDayOfMonth() - eod.getDayOfMonth() == 1);
+        return timeInForce == TimeInForce.Day || (timeInForce == TimeInForce.GTD && (eod.toLocalDate().isEqual(expiration) || eod.toLocalDate().isAfter(expiration)));
     }
 
     public boolean isIceberg() {
