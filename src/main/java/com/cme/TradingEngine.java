@@ -3,9 +3,7 @@ package com.cme;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Clock;
 import java.time.Duration;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -34,13 +32,7 @@ public class TradingEngine implements OrderService {
         Runnable queueConsumer = () -> {
             while (true) {
                 if(!ordersToCancel.isEmpty()) {
-                    final OrderCancel orderCancel = ordersToCancel.poll();
-                    if(orderBooksByOrderId.containsKey(orderCancel.getOrderId())) {
-                        orderBooksByOrderId.get(orderCancel.getOrderId()).cancelOrder(orderCancel.getOrderId(), orderCancel.isExpired());
-                        orderBooksByOrderId.remove(orderCancel.getOrderId());
-                    } else {
-                        ordersToAdd.removeIf(o -> o.getId() == orderCancel.getOrderId());
-                    }
+                    processOrderCancel();
                 }
                 final Order nextOrder = ordersToAdd.poll();
                 if (nextOrder == null) {
@@ -52,6 +44,16 @@ public class TradingEngine implements OrderService {
             }
         };
         new Thread(queueConsumer).start();
+    }
+
+    private void processOrderCancel() {
+        final OrderCancel orderCancel = ordersToCancel.poll();
+        if(orderBooksByOrderId.containsKey(orderCancel.getOrderId())) {
+            orderBooksByOrderId.get(orderCancel.getOrderId()).cancelOrder(orderCancel.getOrderId(), orderCancel.isExpired());
+            orderBooksByOrderId.remove(orderCancel.getOrderId());
+        } else {
+            ordersToAdd.removeIf(o -> o.getId() == orderCancel.getOrderId());
+        }
     }
 
     private void scheduleExpirations() {

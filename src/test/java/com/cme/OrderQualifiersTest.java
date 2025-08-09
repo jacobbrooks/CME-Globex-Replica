@@ -1,9 +1,7 @@
 package com.cme;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -23,6 +21,39 @@ public class OrderQualifiersTest extends OrderBookTest {
     public OrderQualifiersTest() {
         engine.addOrderBook(fifoOrderBook);
         engine.start();
+    }
+
+    @Test
+    public void testGTCOrderExpirationDueToSecurityExpiration() {
+        // We need local objects for this test with an unstarted engine to have control over time mocking
+        final Security fifoExpiringSoon = Security.builder().id(2)
+                .matchingAlgorithm(MatchingAlgorithm.FIFO)
+                .expiration(LocalDate.now())
+                .build();
+
+        final TradingEngine localEngine = new TradingEngine();
+        final OrderBook localOrderBook = new OrderBook(fifoExpiringSoon, localEngine);
+        localEngine.addOrderBook(localOrderBook);
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifoExpiringSoon)
+                .buy(true).price(100L).initialQuantity(1).timeInForce(TimeInForce.GTC).expiration(LocalDate.now())
+                .build();
+
+        // See if the security's expiration forces the indefinite GTC order to expire
+        localEngine.submit(bid);
+        localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
+        localEngine.start();
+
+        hold(10);
+
+        assertFalse(localEngine.getOrderBooksByOrderId().isEmpty());
+        assertFalse(localOrderBook.isEmpty());
+
+        hold(2000);
+
+        assertTrue(localEngine.getOrderBooksByOrderId().isEmpty());
+        assertTrue(localOrderBook.isEmpty());
+        assertSame(OrderStatus.Expired, localOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
     }
 
     @Test

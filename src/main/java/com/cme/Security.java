@@ -1,8 +1,9 @@
 package com.cme;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+
+import java.time.LocalDate;
 
 @Builder
 @Getter
@@ -14,5 +15,6 @@ public class Security {
     private final int splitPercentage;
     private final int protectionPoints;
     private final MatchingAlgorithm matchingAlgorithm;
+    private final LocalDate expiration;
 
 }

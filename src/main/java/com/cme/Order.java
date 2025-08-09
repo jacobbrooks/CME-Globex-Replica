@@ -154,7 +154,13 @@ public class Order {
      * i.e. we are not checking a specific time to determine expiration - just date.
      */
     public boolean shouldExpireToday(ZonedDateTime eod) {
-        return timeInForce == TimeInForce.Day || (timeInForce == TimeInForce.GTD && (eod.toLocalDate().isEqual(expiration) || eod.toLocalDate().isAfter(expiration)));
+        final boolean timeInForceExpiration = timeInForce == TimeInForce.Day
+                || (timeInForce == TimeInForce.GTD
+                && (eod.toLocalDate().isEqual(expiration) || eod.toLocalDate().isAfter(expiration)));
+        final boolean securityExpiration = security.getExpiration() != null
+                && (eod.toLocalDate().isEqual(security.getExpiration())
+                || eod.toLocalDate().isAfter(security.getExpiration()));
+        return timeInForceExpiration || securityExpiration;
     }
 
     public boolean isIceberg() {
