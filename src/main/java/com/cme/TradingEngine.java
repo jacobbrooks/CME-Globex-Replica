@@ -1,5 +1,6 @@
 package com.cme;
 
+import com.cme.matchcomparators.OrderModify;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -69,7 +70,7 @@ public class TradingEngine implements OrderService {
         scheduler.scheduleAtFixedRate(this::cancelExpiredOrders, initialDelay, TimeUnit.DAYS.toSeconds(1), TimeUnit.SECONDS);
     }
 
-    public void cancelExpiredOrders() {
+    private void cancelExpiredOrders() {
         orderBooksByOrderId.entrySet().stream()
                 .map(e -> e.getValue().getOrders().get(e.getKey()))
                 .filter(o -> o.shouldExpireToday(ZonedDateTime.now()))
@@ -85,6 +86,26 @@ public class TradingEngine implements OrderService {
     @Override
     public void cancel(OrderCancel orderCancel) {
         ordersToCancel.add(orderCancel);
+    }
+
+    @Override
+    public void modify(OrderModify orderModify) {
+        final Order original = orderBooksByOrderId.get(orderModify.getOrderId()).getOrders().get(orderModify.getOrderId());
+        final Order modified = Order.builder().originId(original.getId())
+                .clientOrderId(Optional.ofNullable(orderModify.getClientOrderId()).orElse(original.getClientOrderId()))
+                .initialQuantity(Optional.ofNullable(orderModify.getQuantity()).orElse(original.getRemainingQuantity()))
+                .orderType(Optional.ofNullable(orderModify.getOrderType()).orElse(original.getOrderType()))
+                .price(Optional.ofNullable(orderModify.getPrice()).orElse(original.getPrice()))
+                .timeInForce(Optional.ofNullable(orderModify.getTimeInForce()).orElse(original.getTimeInForce()))
+                .triggerPrice(Optional.ofNullable(orderModify.getTriggerPrice()).orElse(original.getTriggerPrice()))
+                .minQuantity(Optional.ofNullable(orderModify.getMinQuantity()).orElse(original.getMinQuantity()))
+                .displayQuantity(Optional.ofNullable(orderModify.getDisplayQuantity()).orElse(original.getDisplayQuantity()))
+                .expiration(Optional.ofNullable(orderModify.getExpiration()).orElse(original.getExpiration()))
+                .security(original.getSecurity())
+                .buy(original.isBuy())
+                .build();
+        cancel(original.getId());
+        submit(modified);
     }
 
     public void cancel(int orderId) {
