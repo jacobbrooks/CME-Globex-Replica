@@ -24,7 +24,6 @@ public class Order {
     private final String clientOrderId;
     private final Security security;
     private final long triggerPrice;
-    private final int initialQuantity;
     private final int minQuantity;
     private final int displayQuantity;
     private final boolean buy;
@@ -36,6 +35,9 @@ public class Order {
     @Setter
     private long price;
     @Setter
+    private int initialQuantity;
+
+    @Setter
     private boolean top;
     private int lmmAllocationPercentage;
     private int filledQuantity;
@@ -46,6 +48,7 @@ public class Order {
     private boolean proRataAllocated;
     private boolean markedForLeveling;
     private boolean slice;
+    private boolean inFlightMitigatedReplacement;
 
     public static class OrderBuilder {
         public OrderBuilder initialQuantity(int initialQuantity) {

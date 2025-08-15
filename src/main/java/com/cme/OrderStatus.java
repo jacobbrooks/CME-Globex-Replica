@@ -5,6 +5,7 @@ public enum OrderStatus {
     Reject,
     PartialFill,
     CompleteFill,
-    Expired
+    Expired,
+    Cancelled
 }
 

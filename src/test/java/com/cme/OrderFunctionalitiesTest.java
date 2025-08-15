@@ -1,10 +1,12 @@
 package com.cme;
 
+import com.cme.matchcomparators.OrderModify;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -30,11 +32,79 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
     private final OrderBook fifoOrderBook = new OrderBook(fifo, engine);
     private final OrderBook orderBook = new OrderBook(configurable, new TradingEngine());
 
+    public OrderFunctionalitiesTest() {
+        engine.addOrderBook(fifoOrderBook);
+        engine.start();
+    }
+
+    @Test
+    public void testIcebergOrderModify() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(10).displayQuantity(2)
+                .build();
+
+        engine.submit(bid);
+
+        hold(20);
+
+        assertFalse(fifoOrderBook.isEmpty());
+        assertTrue(fifoOrderBook.getOrders().containsKey(bid.getId() + 1));
+        assertTrue(fifoOrderBook.getOrders().get(bid.getId() + 1).isSlice());
+        assertSame(OrderStatus.New, fifoOrderBook.getLastOrderUpdate(bid.getId() + 1).getStatus());
+        assertEquals(2, fifoOrderBook.getOrders().get(bid.getId() + 1).getRemainingQuantity());
+
+        final OrderModify orderModify = OrderModify.builder().orderId(bid.getId()).price(200L).displayQuantity(1).build();
+
+        engine.modify(orderModify);
+
+        hold(10);
+
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+
+        assertFalse(fifoOrderBook.isEmpty());
+        assertTrue(fifoOrderBook.getOrders().containsKey(bid.getId() + 3));
+        assertTrue(fifoOrderBook.getOrders().get(bid.getId() + 3).isSlice());
+        assertSame(OrderStatus.New, fifoOrderBook.getLastOrderUpdate(bid.getId() + 3).getStatus());
+        assertEquals(1, fifoOrderBook.getOrders().get(bid.getId() + 3).getRemainingQuantity());
+    }
+
+    @Test
+    public void testBasicOrderModify() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(1)
+                .build();
+
+        engine.submit(bid);
+
+        hold(10);
+
+        final OrderModify orderModify = OrderModify.builder().orderId(bid.getId()).price(200L).quantity(2).build();
+
+        engine.modify(orderModify);
+
+        hold(10);
+
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+        assertFalse(fifoOrderBook.isEmpty());
+
+        final Optional<Order> replacement = fifoOrderBook.getOrders().values().stream()
+                .filter(order -> order.getOriginId() == bid.getId()).findAny();
+
+        assertTrue(replacement.isPresent());
+
+        replacement.ifPresent(o -> {
+            assertEquals(o.getPrice(), orderModify.getPrice());
+            assertEquals(o.getInitialQuantity(), orderModify.getQuantity());
+        });
+    }
+
     @Test
     public void testCancelIcebergOrder() {
         fifoOrderBook.clear();
-        engine.addOrderBook(fifoOrderBook);
-        engine.start();
 
         // Create resting limit orders
         final List<Order> asks = Stream.of(new int[]{200, 2}, new int[]{300, 1})

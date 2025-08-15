@@ -10,6 +10,8 @@ import java.util.List;
 @Setter
 public class OrderUpdate {
 
+    private final long timestamp = System.currentTimeMillis();
+
     private final List<MatchEvent> matches = new ArrayList<>();
 
     private OrderStatus status;

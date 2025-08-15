@@ -20,4 +20,5 @@ public class OrderModify {
     private Integer minQuantity;
     private Integer displayQuantity;
     private LocalDate expiration;
+    private Boolean inFlightMitigation;
 }

@@ -35,13 +35,28 @@ public class TradingEngine implements OrderService {
                 if(!ordersToCancel.isEmpty()) {
                     processOrderCancel();
                 }
+
                 final Order nextOrder = ordersToAdd.poll();
                 if (nextOrder == null) {
                     continue;
                 }
+
                 final OrderBook book = orderBooksBySecurityId.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(nextOrder.getSecurity(), this));
-                book.addOrder(nextOrder);
-                orderBooksByOrderId.put(nextOrder.getId(), book);
+
+                if(nextOrder.isInFlightMitigatedReplacement()) {
+                    final int filledQtyBetweenModifyRequestAndCancel = book.getOrderUpdates(nextOrder.getOriginId()).stream()
+                            .filter(u -> u.getTimestamp() > nextOrder.getTimestamp())
+                            .filter(u -> u.getStatus() == OrderStatus.PartialFill || u.getStatus() == OrderStatus.CompleteFill)
+                            .mapToInt(u -> u.getMatches().stream().mapToInt(MatchEvent::getMatchQuantity).sum())
+                            .sum();
+                    final int mitigatedQty = Math.min(0, nextOrder.getInitialQuantity() - filledQtyBetweenModifyRequestAndCancel);
+                    nextOrder.setInitialQuantity(mitigatedQty);
+                }
+
+                if(nextOrder.getInitialQuantity() > 0) {
+                    book.addOrder(nextOrder);
+                    orderBooksByOrderId.put(nextOrder.getId(), book);
+                }
             }
         };
         new Thread(queueConsumer).start();
@@ -92,6 +107,7 @@ public class TradingEngine implements OrderService {
     public void modify(OrderModify orderModify) {
         final Order original = orderBooksByOrderId.get(orderModify.getOrderId()).getOrders().get(orderModify.getOrderId());
         final Order modified = Order.builder().originId(original.getId())
+                .inFlightMitigatedReplacement(Optional.ofNullable(orderModify.getInFlightMitigation()).orElse(false))
                 .clientOrderId(Optional.ofNullable(orderModify.getClientOrderId()).orElse(original.getClientOrderId()))
                 .initialQuantity(Optional.ofNullable(orderModify.getQuantity()).orElse(original.getRemainingQuantity()))
                 .orderType(Optional.ofNullable(orderModify.getOrderType()).orElse(original.getOrderType()))

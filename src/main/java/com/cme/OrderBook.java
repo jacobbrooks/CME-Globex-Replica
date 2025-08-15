@@ -78,6 +78,11 @@ public class OrderBook {
         }
 
         final Order derivedOrder = order.getDisplayQuantity() > 0 ? order.getNewSlice() : order;
+        orders.put(derivedOrder.getId(), derivedOrder);
+        if(derivedOrder.isSlice()) {
+            final OrderUpdate sliceAck = new OrderUpdate(OrderStatus.New, derivedOrder.getOrderType());
+            orderUpdateMap.computeIfAbsent(derivedOrder.getId(), k -> new ArrayList<OrderUpdate>()).add(ack);
+        }
 
         if(!minQuantityMet(derivedOrder, matchAgainst)) {
             final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, derivedOrder.getOrderType());
@@ -214,10 +219,8 @@ public class OrderBook {
             return;
         }
 
-        if(expired) {
-            final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, orders.get(orderId).getOrderType());
-            orderUpdateMap.get(orders.get(orderId).getId()).add(elimination);
-        }
+        final OrderUpdate update = new OrderUpdate(expired ? OrderStatus.Expired : OrderStatus.Cancelled, orders.get(orderId).getOrderType());
+        orderUpdateMap.get(orders.get(orderId).getId()).add(update);
 
         orderIdByClientOrderId.remove(orders.get(orderId).getClientOrderId());
 
