@@ -20,8 +20,6 @@ public class PriceLevel {
     private final MatchStepComparator matchStepComparator;
     private final OrderService orderService;
 
-    private final Map<Integer, Order> icebergOrders = new HashMap<>();
-
     public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator, OrderService orderService) {
         this.matchingAlgorithm = matchingAlgorithm;
         this.matchStepComparator = matchStepComparator;
@@ -65,13 +63,6 @@ public class PriceLevel {
                 ordersByMatchStep.get(matchStepIndex).add(new OrderContainer(match, matchStepComparator, matchStepIndex));
             } else {
                 ordersById.remove(match.getId());
-            }
-
-            if(match.isFilled() && match.isSlice() && !icebergOrders.get(match.getOriginId()).isFilled()) {
-                orderService.submit(icebergOrders.get(match.getOriginId()).getNewSlice());
-                if(icebergOrders.get(match.getOriginId()).isFilled()) {
-                    icebergOrders.remove(match.getOriginId());
-                }
             }
 
             if (fillQuantity > 0) {
@@ -207,11 +198,6 @@ public class PriceLevel {
         if (matchStepComparator.hasStep(MatchStep.ProRata)) {
             updateProrationsAndResort();
         }
-    }
-
-    public void addIceberg(Order iceberg) {
-        icebergOrders.put(iceberg.getId(), iceberg);
-        ordersById.put(iceberg.getId(), iceberg);
     }
 
     private void addOrderToProperQueues(Order order) {

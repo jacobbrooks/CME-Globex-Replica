@@ -35,13 +35,13 @@ public class OrderTypesTest extends OrderBookTest {
 
         fifoOrderBook.addOrder(marketWithProtection);
 
-        assertSame(OrderType.MarketWithProtection, fifoOrderBook.getOrderUpdates(marketWithProtection.getId()).get(0).getType());
+        assertSame(OrderType.MarketWithProtection, fifoOrderBook.getOrderUpdates(marketWithProtection.getId()).get(0).getAggressingOrderType());
         assertSame(OrderStatus.New, fifoOrderBook.getOrderUpdates(marketWithProtection.getId()).get(0).getStatus());
 
         fifoOrderBook.getOrderUpdates(marketWithProtection.getId()).stream()
                 .filter(u -> u.getStatus() != OrderStatus.New)
                 .forEach(u -> {
-                    assertSame(OrderType.MarketWithProtection, u.getType());
+                    assertSame(OrderType.MarketWithProtection, u.getAggressingOrderType());
                     assertSame(OrderStatus.PartialFill, u.getStatus());
                 });
 
@@ -80,7 +80,7 @@ public class OrderTypesTest extends OrderBookTest {
 
         fifoOrderBook.addOrder(marketLimitBid);
 
-        assertSame(OrderType.MarketLimit, fifoOrderBook.getLastOrderUpdate(marketLimitBid.getId()).getType());
+        assertSame(OrderType.MarketLimit, fifoOrderBook.getLastOrderUpdate(marketLimitBid.getId()).getAggressingOrderType());
         assertSame(OrderStatus.PartialFill, fifoOrderBook.getLastOrderUpdate(marketLimitBid.getId()).getStatus());
 
         // Bid should just match against best price, then rest should remain on book at that price
@@ -116,7 +116,7 @@ public class OrderTypesTest extends OrderBookTest {
         fifoOrderBook.addOrder(stopOrder);
 
         assertFalse(Optional.ofNullable(fifoOrderBook.getOrderUpdates(stopOrder.getId())).orElse(Collections.emptyList()).isEmpty());
-        assertSame(OrderType.StopLimit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getType());
+        assertSame(OrderType.StopLimit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getAggressingOrderType());
         assertSame(OrderStatus.New, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getStatus());
 
         // A limit order at the stop order's trigger price which just rests on the book should not yet trigger the stop order
@@ -125,12 +125,12 @@ public class OrderTypesTest extends OrderBookTest {
 
         // Aggressing limit order should match against the resting limit order, which then should trigger the stop order
         fifoOrderBook.addOrder(aggressing);
-        assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId()).getType());
+        assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId()).getAggressingOrderType());
         assertFalse(fifoOrderBook.isEmpty());
 
         fifoOrderBook.addOrder(stopOrderMatch);
         // Stop order fill notice should be 3rd update
-        assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId()).getType());
+        assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId()).getAggressingOrderType());
         assertSame(OrderStatus.CompleteFill, fifoOrderBook.getLastOrderUpdate(stopOrder.getId()).getStatus());
 
         final List<MatchEvent> expectedMatches = List.of(new MatchEvent(stopOrderMatch.getId(), stopOrder.getId(), 200L, 10, false, 0L));
@@ -189,7 +189,7 @@ public class OrderTypesTest extends OrderBookTest {
 
         assertFalse(Optional.ofNullable(fifoOrderBook.getOrderUpdates(stopOrder.getId())).orElse(Collections.emptyList()).isEmpty());
         // CME specification states that StopWithProtection orders are confirmed as StopLimit
-        assertSame(OrderType.StopLimit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getType());
+        assertSame(OrderType.StopLimit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getAggressingOrderType());
         assertSame(OrderStatus.New, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getStatus());
 
         fifoOrderBook.addOrder(bidBelowTrigger);
@@ -207,11 +207,11 @@ public class OrderTypesTest extends OrderBookTest {
         fifoOrderBook.addOrder(stopTriggerAsk);
 
         // Stop order gets re-confirmed as a limit order
-        assertSame(OrderType.Limit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(1).getType());
+        assertSame(OrderType.Limit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(1).getAggressingOrderType());
         assertSame(OrderStatus.New, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(1).getStatus());
 
         // Stop order fill notice should be 3rd update
-        assertSame(OrderType.Limit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(2).getType());
+        assertSame(OrderType.Limit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(2).getAggressingOrderType());
         assertSame(OrderStatus.PartialFill, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(2).getStatus());
         final List<MatchEvent> expectedMatches = List.of(new MatchEvent(stopOrder.getId(), restingAsksToMatchStop.get(0).getId(), 170L, 1, true, 0L),
                 new MatchEvent(stopOrder.getId(), restingAsksToMatchStop.get(1).getId(), 180L, 1, true, 0L),

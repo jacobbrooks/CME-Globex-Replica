@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class OrderBook {
 
@@ -27,7 +28,7 @@ public class OrderBook {
     private final Map<Integer, List<OrderUpdate>> orderUpdateMap = new ConcurrentHashMap<>();
 
     private final Queue<Order> stopOrders = new PriorityBlockingQueue<>(1, Comparator.comparingLong(Order::getTimestamp));
-    private final Map<Integer, Order> icebergOrders = new HashMap<>();
+    private final Map<Integer, Order> icebergOrders = new ConcurrentHashMap<>();
 
     @Getter
     private final AtomicReference<Order> topBid = new AtomicReference<>();
@@ -68,7 +69,7 @@ public class OrderBook {
         final long bestPrice = best.map(PriceLevel::getPrice).orElse(this.lastTradedPrice);
 
         if (order.isStopLimit() || order.isStopWithProtection()) {
-            ack.setType(OrderType.StopLimit);
+            ack.setAggressingOrderType(OrderType.StopLimit);
             stopOrders.add(order);
             return;
         }
@@ -78,8 +79,8 @@ public class OrderBook {
         }
 
         final Order derivedOrder = order.getDisplayQuantity() > 0 ? order.getNewSlice() : order;
-        orders.put(derivedOrder.getId(), derivedOrder);
-        if(derivedOrder.isSlice()) {
+        if(order.getDisplayQuantity() > 0) {
+            orders.put(derivedOrder.getId(), derivedOrder);
             final OrderUpdate sliceAck = new OrderUpdate(OrderStatus.New, derivedOrder.getOrderType());
             orderUpdateMap.computeIfAbsent(derivedOrder.getId(), k -> new ArrayList<OrderUpdate>()).add(ack);
         }
@@ -101,18 +102,24 @@ public class OrderBook {
             final OrderUpdate aggressorFillNotice = new OrderUpdate(order.isFilled() ? OrderStatus.CompleteFill : OrderStatus.PartialFill, derivedOrder.getOrderType());
             aggressorFillNotice.addMatches(lastTradedPrice, matches);
             aggressorFillNotice.setRemainingQuantity(derivedOrder.getRemainingQuantity());
-            orderUpdateMap.get(derivedOrder.isSlice() ? derivedOrder.getOriginId() : derivedOrder.getId()).add(aggressorFillNotice);
+            orderUpdateMap.get(derivedOrder.getId()).add(aggressorFillNotice);
 
-            matches.forEach(m -> {
-                final int remainingQty = Optional.ofNullable(orders.get(m.getRestingOrderId())).map(Order::getRemainingQuantity).orElse(0);
+            final Set<Integer> ordersToRemove = matches.stream().map(e -> {
+                final Order match = orders.get(e.getRestingOrderId());
+                final int remainingQty = match.getRemainingQuantity();
                 final OrderUpdate restingFillNotice = new OrderUpdate(remainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, derivedOrder.getOrderType());
-                restingFillNotice.addMatches(lastTradedPrice, List.of(m));
+                restingFillNotice.addMatches(lastTradedPrice, List.of(e));
                 restingFillNotice.setRemainingQuantity(remainingQty);
-                orderUpdateMap.computeIfAbsent(m.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(restingFillNotice);
-                if(Optional.ofNullable(orders.get(m.getRestingOrderId())).map(Order::isFilled).orElse(true)) {
-                    orders.remove(m.getRestingOrderId());
-                    priceLevelByOrderId.remove(m.getRestingOrderId());
+                orderUpdateMap.computeIfAbsent(e.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(restingFillNotice);
+                if(match.isSlice()) {
+                    processIcebergMatch(match, List.of(e));
                 }
+                return remainingQty == 0 ? e.getRestingOrderId() : null;
+            }).filter(Objects::nonNull).collect(Collectors.toSet());
+
+            ordersToRemove.forEach(id -> {
+                orders.remove(id);
+                priceLevelByOrderId.remove(id);
             });
 
             if (best.get().getTotalQuantity() == 0) {
@@ -125,6 +132,8 @@ public class OrderBook {
                 derivedOrder.setOrderType(OrderType.Limit);
                 derivedOrder.setPrice(this.lastTradedPrice);
             }
+
+            processIcebergMatch(derivedOrder, matches);
         }
 
         if (derivedOrder.isMarketWithProtection()) {
@@ -143,10 +152,6 @@ public class OrderBook {
         if (!derivedOrder.isFilled() && derivedOrder.getTimeInForce() != TimeInForce.FAK) {
             final PriceLevel addTo = resting.computeIfAbsent(derivedOrder.getPrice(), k -> new PriceLevel(derivedOrder.getPrice(),
                     security.getMatchingAlgorithm(), matchStepComparator, orderService));
-
-            if(derivedOrder.isSlice()) {
-                addTo.addIceberg(icebergOrders.get(derivedOrder.getOriginId()));
-            }
 
             final boolean deservesTopStatus = matchStepComparator.hasStep(MatchStep.TOP)
                     && derivedOrder.getPrice() == resting.firstEntry().getKey()
@@ -174,22 +179,6 @@ public class OrderBook {
             orderUpdateMap.get(derivedOrder.getId()).add(elimination);
         }
 
-        if(derivedOrder.isSlice()) {
-            icebergOrders.get(derivedOrder.getOriginId()).fill(derivedOrder.getFilledQuantity());
-        }
-
-        final boolean parentIcebergFilled = Optional.ofNullable(icebergOrders.get(derivedOrder.getOriginId()))
-                .map(Order::isFilled)
-                .orElse(true);
-
-        if(derivedOrder.isFilled() && derivedOrder.isSlice() && !parentIcebergFilled) {
-            orderService.submit(icebergOrders.get(derivedOrder.getOriginId()).getNewSlice());
-        }
-
-        if (parentIcebergFilled) {
-            icebergOrders.remove(derivedOrder.getOriginId());
-        }
-
         if(derivedOrder.isFilled()) {
             orders.remove(derivedOrder.getId());
         }
@@ -209,6 +198,33 @@ public class OrderBook {
             o.setOrderType(OrderType.Limit);
             addOrder(o);
         });
+    }
+
+    public void processIcebergMatch(Order matchedSlice, List<MatchEvent> matches) {
+        if(!matchedSlice.isSlice()) {
+            return;
+        }
+
+        icebergOrders.get(matchedSlice.getOriginId()).fill(matchedSlice.getFilledQuantity());
+
+        final int icebergRemainingQty = orders.get(matchedSlice.getOriginId()).getRemainingQuantity();
+        final OrderUpdate icebergFillNotice = new OrderUpdate(icebergRemainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, matchedSlice.getOrderType());
+        icebergFillNotice.addMatches(lastTradedPrice, matches);
+        icebergFillNotice.setRemainingQuantity(icebergRemainingQty);
+        orderUpdateMap.computeIfAbsent(matchedSlice.getOriginId(), k -> new ArrayList<OrderUpdate>()).add(icebergFillNotice);
+
+        final boolean parentIcebergFilled = Optional.ofNullable(icebergOrders.get(matchedSlice.getOriginId()))
+                .map(Order::isFilled)
+                .orElse(true);
+
+        if (parentIcebergFilled) {
+            icebergOrders.remove(matchedSlice.getOriginId());
+            return;
+        }
+
+        if(matchedSlice.isFilled()) {
+            orderService.submit(icebergOrders.get(matchedSlice.getOriginId()).getNewSlice());
+        }
     }
 
     public void cancelOrder(int orderId, boolean expired) {

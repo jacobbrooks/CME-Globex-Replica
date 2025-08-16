@@ -120,7 +120,70 @@ public class OrderQualifiersTest extends OrderBookTest {
     }
 
     @Test
-    public void testIcebergOrder() {
+    public void testIcebergOrderResting() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(2).displayQuantity(1)
+                .build();
+
+        engine.submit(bid);
+
+        hold(10);
+
+        final Order ask1 = Order.builder().clientOrderId(Integer.toString(0))
+                .security(fifo).buy(false).price(100L).initialQuantity(1)
+                .build();
+
+        final Order ask2 = Order.builder().clientOrderId(Integer.toString(0))
+                .security(fifo).buy(false).price(100L).initialQuantity(1)
+                .build();
+
+        engine.submit(ask1);
+
+        hold(10);
+
+        MatchEvent expectedSliceMatch = new MatchEvent(ask1.getId(), bid.getId() + 1, 100L, 1, false, 0L);
+        MatchEvent actualSliceMatch = fifoOrderBook.getLastOrderUpdate(bid.getId() + 1).getMatches().get(0);
+        assertSame(OrderStatus.CompleteFill, fifoOrderBook.getLastOrderUpdate(bid.getId() + 1).getStatus());
+
+        // Since matches technically occur against child slices and not the parent iceberg, the match events
+        // contained in the parent iceberg's update queue will be its child slice's match events
+        MatchEvent expectedIcebergMatch = expectedSliceMatch;
+        MatchEvent actualIcebergMatch = fifoOrderBook.getLastOrderUpdate(bid.getId()).getMatches().get(0);
+        assertSame(OrderStatus.PartialFill, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+
+        if(!equalMatches(List.of(expectedSliceMatch), List.of(actualSliceMatch))) {
+            fail(getFailMessage("matches", List.of(expectedSliceMatch.toString()), List.of(actualSliceMatch.toString())));
+        }
+
+        if(!equalMatches(List.of(expectedIcebergMatch), List.of(actualIcebergMatch))) {
+            fail(getFailMessage("matches", List.of(expectedIcebergMatch.toString()), List.of(actualIcebergMatch.toString())));
+        }
+
+        engine.submit(ask2);
+
+        hold(10);
+
+        expectedSliceMatch = new MatchEvent(ask2.getId(), bid.getId() + 4, 100L, 1, false, 0L);
+        actualSliceMatch = fifoOrderBook.getLastOrderUpdate(bid.getId() + 4).getMatches().get(0);
+        assertSame(OrderStatus.CompleteFill, fifoOrderBook.getLastOrderUpdate(bid.getId() + 1).getStatus());
+
+        expectedIcebergMatch = expectedSliceMatch;
+        actualIcebergMatch = fifoOrderBook.getLastOrderUpdate(bid.getId()).getMatches().get(0);
+        assertSame(OrderStatus.CompleteFill, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+
+        if(!equalMatches(List.of(expectedSliceMatch), List.of(actualSliceMatch))) {
+            fail(getFailMessage("matches", List.of(expectedSliceMatch.toString()), List.of(actualSliceMatch.toString())));
+        }
+
+        if(!equalMatches(List.of(expectedIcebergMatch), List.of(actualIcebergMatch))) {
+            fail(getFailMessage("matches", List.of(expectedIcebergMatch.toString()), List.of(actualIcebergMatch.toString())));
+        }
+    }
+
+    @Test
+    public void testIcebergOrderAggressing() {
         fifoOrderBook.clear();
 
         // Create resting limit orders

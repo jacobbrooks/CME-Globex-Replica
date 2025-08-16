@@ -15,13 +15,13 @@ public class OrderUpdate {
     private final List<MatchEvent> matches = new ArrayList<>();
 
     private OrderStatus status;
-    private OrderType type;
+    private OrderType aggressingOrderType;
     private int remainingQuantity;
     private long price;
 
-    public OrderUpdate(OrderStatus status, OrderType type) {
+    public OrderUpdate(OrderStatus status, OrderType aggressingOrderType) {
         this.status = status;
-        this.type = type;
+        this.aggressingOrderType = aggressingOrderType;
     }
 
     public void addMatches(long price, List<MatchEvent> matchEvents) {
