@@ -86,7 +86,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         engine.modify(orderModify);
 
-        hold(10);
+        hold(20);
 
         assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
         assertFalse(fifoOrderBook.isEmpty());
