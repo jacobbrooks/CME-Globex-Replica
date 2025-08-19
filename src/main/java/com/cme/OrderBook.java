@@ -4,9 +4,7 @@ import com.cme.matchcomparators.MatchStepComparator;
 import lombok.Getter;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -25,7 +23,7 @@ public class OrderBook {
     private final Map<Integer, Order> orders = new ConcurrentHashMap<>();
     private final Map<Integer, PriceLevel> priceLevelByOrderId = new ConcurrentHashMap<>();
     private final Map<String, Integer> orderIdByClientOrderId = new ConcurrentHashMap<>();
-    private final Map<Integer, List<OrderUpdate>> orderUpdateMap = new ConcurrentHashMap<>();
+    private final Map<Integer, Queue<OrderUpdate>> orderUpdateMap = new ConcurrentHashMap<>();
 
     private final Queue<Order> stopOrders = new PriorityBlockingQueue<>(1, Comparator.comparingLong(Order::getTimestamp));
     private final Map<Integer, Order> icebergOrders = new ConcurrentHashMap<>();
@@ -52,7 +50,7 @@ public class OrderBook {
 
     public void addOrder(Order order) {
         final OrderUpdate ack = new OrderUpdate(OrderStatus.New, order.getOrderType());
-        orderUpdateMap.computeIfAbsent(order.getId(), k -> new ArrayList<OrderUpdate>()).add(ack);
+        pushOrderUpdate(order.getId(), ack);
 
         if(!isValidOrder(order)) {
             ack.setStatus(OrderStatus.Reject);
@@ -82,12 +80,12 @@ public class OrderBook {
         if(order.getDisplayQuantity() > 0) {
             orders.put(derivedOrder.getId(), derivedOrder);
             final OrderUpdate sliceAck = new OrderUpdate(OrderStatus.New, derivedOrder.getOrderType());
-            orderUpdateMap.computeIfAbsent(derivedOrder.getId(), k -> new ArrayList<OrderUpdate>()).add(ack);
+            pushOrderUpdate(derivedOrder.getId(), ack);
         }
 
         if(!minQuantityMet(derivedOrder, matchAgainst)) {
             final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, derivedOrder.getOrderType());
-            orderUpdateMap.get(derivedOrder.getId()).add(elimination);
+            pushOrderUpdate(derivedOrder.getId(), elimination);
             return;
         }
 
@@ -102,7 +100,7 @@ public class OrderBook {
             final OrderUpdate aggressorFillNotice = new OrderUpdate(order.isFilled() ? OrderStatus.CompleteFill : OrderStatus.PartialFill, derivedOrder.getOrderType());
             aggressorFillNotice.addMatches(lastTradedPrice, matches);
             aggressorFillNotice.setRemainingQuantity(derivedOrder.getRemainingQuantity());
-            orderUpdateMap.get(derivedOrder.getId()).add(aggressorFillNotice);
+            pushOrderUpdate(derivedOrder.getId(), aggressorFillNotice);
 
             final Set<Integer> ordersToRemove = matches.stream().map(e -> {
                 final Order match = orders.get(e.getRestingOrderId());
@@ -110,7 +108,7 @@ public class OrderBook {
                 final OrderUpdate restingFillNotice = new OrderUpdate(remainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, derivedOrder.getOrderType());
                 restingFillNotice.addMatches(lastTradedPrice, List.of(e));
                 restingFillNotice.setRemainingQuantity(remainingQty);
-                orderUpdateMap.computeIfAbsent(e.getRestingOrderId(), k -> new ArrayList<OrderUpdate>()).add(restingFillNotice);
+                pushOrderUpdate(e.getRestingOrderId(), restingFillNotice);
                 if(match.isSlice()) {
                     processIcebergMatch(match, List.of(e));
                 }
@@ -151,7 +149,7 @@ public class OrderBook {
 
         if (!derivedOrder.isFilled() && derivedOrder.getTimeInForce() != TimeInForce.FAK) {
             final PriceLevel addTo = resting.computeIfAbsent(derivedOrder.getPrice(), k -> new PriceLevel(derivedOrder.getPrice(),
-                    security.getMatchingAlgorithm(), matchStepComparator, orderService));
+                    security.getMatchingAlgorithm(), matchStepComparator));
 
             final boolean deservesTopStatus = matchStepComparator.hasStep(MatchStep.TOP)
                     && derivedOrder.getPrice() == resting.firstEntry().getKey()
@@ -176,7 +174,7 @@ public class OrderBook {
 
         if(!derivedOrder.isFilled() && derivedOrder.getTimeInForce() == TimeInForce.FAK) {
             final OrderUpdate elimination = new OrderUpdate(OrderStatus.Expired, derivedOrder.getOrderType());
-            orderUpdateMap.get(derivedOrder.getId()).add(elimination);
+            pushOrderUpdate(derivedOrder.getId(), elimination);
         }
 
         if(derivedOrder.isFilled()) {
@@ -211,7 +209,7 @@ public class OrderBook {
         final OrderUpdate icebergFillNotice = new OrderUpdate(icebergRemainingQty > 0 ? OrderStatus.PartialFill : OrderStatus.CompleteFill, matchedSlice.getOrderType());
         icebergFillNotice.addMatches(lastTradedPrice, matches);
         icebergFillNotice.setRemainingQuantity(icebergRemainingQty);
-        orderUpdateMap.computeIfAbsent(matchedSlice.getOriginId(), k -> new ArrayList<OrderUpdate>()).add(icebergFillNotice);
+        pushOrderUpdate(matchedSlice.getOriginId(), icebergFillNotice);
 
         final boolean parentIcebergFilled = Optional.ofNullable(icebergOrders.get(matchedSlice.getOriginId()))
                 .map(Order::isFilled)
@@ -236,7 +234,7 @@ public class OrderBook {
         }
 
         final OrderUpdate update = new OrderUpdate(expired ? OrderStatus.Expired : OrderStatus.Cancelled, orders.get(orderId).getOrderType());
-        orderUpdateMap.get(orders.get(orderId).getId()).add(update);
+        pushOrderUpdate(orders.get(orderId).getId(), update);
 
         orderIdByClientOrderId.remove(orders.get(orderId).getClientOrderId());
 
@@ -290,12 +288,17 @@ public class OrderBook {
                 best.getPrice() >= order.getPrice());
     }
 
+    private void pushOrderUpdate(int orderId, OrderUpdate update) {
+        orderUpdateMap.computeIfAbsent(orderId, k -> new ConcurrentLinkedQueue<>()).add(update);
+    }
+
     public List<OrderUpdate> getOrderUpdates(int orderId) {
-        return orderUpdateMap.get(orderId);
+        return orderUpdateMap.get(orderId).stream().toList();
     }
 
     public OrderUpdate getLastOrderUpdate(int orderId) {
-        return orderUpdateMap.get(orderId).get(orderUpdateMap.get(orderId).size() - 1);
+        final List<OrderUpdate> updates = getOrderUpdates(orderId);
+        return updates.get(updates.size() - 1);
     }
 
     public Order getOrder(String clientOrderId) {

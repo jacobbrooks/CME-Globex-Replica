@@ -17,6 +17,7 @@ public class TradingEngine implements OrderService {
     @Getter
     private final Map<Integer, OrderBook> orderBooksByOrderId = new ConcurrentHashMap<>();
     private final Map<Integer, OrderBook> orderBooksBySecurityId = new ConcurrentHashMap<>();
+    private final Map<Integer, OrderBell> orderBells = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
@@ -57,49 +58,29 @@ public class TradingEngine implements OrderService {
                     book.addOrder(nextOrder);
                     orderBooksByOrderId.put(nextOrder.getId(), book);
                 }
+
+                orderBells.get(nextOrder.getId()).ring();
+                if(nextOrder.isIceberg()) {
+                    final int sliceId = book.getOrders().values().stream()
+                            .filter(o -> o.getOriginId() == nextOrder.getId())
+                            .map(Order::getId).findAny().orElse(0);
+                    orderBells.computeIfAbsent(sliceId, k -> new OrderBell()).ring();
+                }
             }
         };
         new Thread(queueConsumer).start();
     }
 
-    private void processOrderCancel() {
-        final OrderCancel orderCancel = ordersToCancel.poll();
-        if(orderBooksByOrderId.containsKey(orderCancel.getOrderId())) {
-            orderBooksByOrderId.get(orderCancel.getOrderId()).cancelOrder(orderCancel.getOrderId(), orderCancel.isExpired());
-            orderBooksByOrderId.remove(orderCancel.getOrderId());
-        } else {
-            ordersToAdd.removeIf(o -> o.getId() == orderCancel.getOrderId());
-        }
-    }
-
-    private void scheduleExpirations() {
-        final ZonedDateTime now = ZonedDateTime.now();
-
-        if(now.compareTo(nextExpirationTime) > 0) {
-            nextExpirationTime = nextExpirationTime.plusDays(1);
-        }
-
-        final Duration duration = Duration.between(now, nextExpirationTime);
-        final long initialDelay = duration.getSeconds();
-
-        scheduler.scheduleAtFixedRate(this::cancelExpiredOrders, initialDelay, TimeUnit.DAYS.toSeconds(1), TimeUnit.SECONDS);
-    }
-
-    private void cancelExpiredOrders() {
-        orderBooksByOrderId.entrySet().stream()
-                .map(e -> e.getValue().getOrders().get(e.getKey()))
-                .filter(o -> o.shouldExpireToday(ZonedDateTime.now()))
-                .map(o -> new OrderCancel(o.getId(), true))
-                .forEach(this::cancel);
-    }
 
     @Override
     public void submit(Order order) {
+        orderBells.computeIfAbsent(order.getId(), k -> new OrderBell());
         ordersToAdd.put(order);
     }
 
     @Override
     public void cancel(OrderCancel orderCancel) {
+        orderBells.get(orderCancel.getOrderId()).silence();
         ordersToCancel.add(orderCancel);
     }
 
@@ -124,6 +105,46 @@ public class TradingEngine implements OrderService {
         submit(modified);
     }
 
+    private void processOrderCancel() {
+        final OrderCancel orderCancel = ordersToCancel.poll();
+        if(orderBooksByOrderId.containsKey(orderCancel.getOrderId())) {
+            orderBooksByOrderId.get(orderCancel.getOrderId()).cancelOrder(orderCancel.getOrderId(), orderCancel.isExpired());
+            orderBooksByOrderId.remove(orderCancel.getOrderId());
+        } else {
+            ordersToAdd.removeIf(o -> o.getId() == orderCancel.getOrderId());
+        }
+        orderBells.get(orderCancel.getOrderId()).ring();
+    }
+
+    private void scheduleExpirations() {
+        final ZonedDateTime now = ZonedDateTime.now();
+
+        if(now.compareTo(nextExpirationTime) > 0) {
+            nextExpirationTime = nextExpirationTime.plusDays(1);
+        }
+
+        final Duration duration = Duration.between(now, nextExpirationTime);
+        final long initialDelay = duration.getSeconds();
+
+        scheduler.scheduleAtFixedRate(this::cancelExpiredOrders, initialDelay, TimeUnit.DAYS.toSeconds(1), TimeUnit.SECONDS);
+    }
+
+    private void cancelExpiredOrders() {
+        orderBooksByOrderId.entrySet().stream()
+                .map(e -> e.getValue().getOrders().get(e.getKey()))
+                .filter(o -> o.shouldExpireToday(ZonedDateTime.now()))
+                .map(o -> new OrderCancel(o.getId(), true))
+                .forEach(this::cancel);
+    }
+
+    public void waitForOrderBell(int orderId) {
+        try {
+            orderBells.computeIfAbsent(orderId, k -> new OrderBell()).waitForRing();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void cancel(int orderId) {
         cancel(new OrderCancel(orderId, false));
     }
@@ -133,10 +154,29 @@ public class TradingEngine implements OrderService {
         ordersToCancel.clear();
         orderBooksBySecurityId.clear();
         orderBooksByOrderId.clear();
+        orderBells.clear();
     }
 
     public void printBook(int securityId) {
         System.out.println(orderBooksBySecurityId.get(securityId).toString());
+    }
+
+    @Getter
+    private static final class OrderBell {
+        private boolean rang = false;
+        public synchronized void waitForRing() throws InterruptedException {
+            if(!rang) {
+                wait();
+            }
+            rang = false;
+        }
+        public synchronized void ring() {
+            rang = true;
+            notify();
+        }
+        public synchronized void silence() {
+            rang = false;
+        }
     }
 
 }

@@ -47,7 +47,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         engine.submit(bid);
 
-        hold(20);
+        engine.waitForOrderBell(bid.getId() + 1);
 
         assertFalse(fifoOrderBook.isEmpty());
         assertTrue(fifoOrderBook.getOrders().containsKey(bid.getId() + 1));
@@ -59,7 +59,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         engine.modify(orderModify);
 
-        hold(10);
+        engine.waitForOrderBell(bid.getId() + 3);
 
         assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
 
@@ -80,13 +80,13 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         engine.submit(bid);
 
-        hold(10);
+        engine.waitForOrderBell(bid.getId());
 
         final OrderModify orderModify = OrderModify.builder().orderId(bid.getId()).price(200L).quantity(2).build();
 
         engine.modify(orderModify);
 
-        hold(20);
+        engine.waitForOrderBell(bid.getId() + 1);
 
         assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
         assertFalse(fifoOrderBook.isEmpty());
@@ -119,12 +119,11 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         asks.forEach(engine::submit);
 
-        hold(10);
+        engine.waitForOrderBell(asks.get(asks.size() - 1).getId());
 
         engine.submit(bid);
 
-        // Wait a little to make sure all slices are matched (happens in another thread)
-        hold(10);
+        engine.waitForOrderBell(bid.getId() + 3);
 
         final List<MatchEvent> matches = asks.stream()
                 .flatMap(a -> fifoOrderBook.getOrderUpdates(a.getId()).stream()
@@ -145,7 +144,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         engine.cancel(bid.getId());
 
-        hold(10);
+        engine.waitForOrderBell(bid.getId());
 
         assertTrue(fifoOrderBook.isEmpty());
         assertFalse(fifoOrderBook.getOrders().containsKey(bid.getId()));

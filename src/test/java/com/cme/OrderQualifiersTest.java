@@ -44,7 +44,7 @@ public class OrderQualifiersTest extends OrderBookTest {
         localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
         localEngine.start();
 
-        hold(10);
+        localEngine.waitForOrderBell(bid.getId());
 
         assertFalse(localEngine.getOrderBooksByOrderId().isEmpty());
         assertFalse(localOrderBook.isEmpty());
@@ -78,7 +78,7 @@ public class OrderQualifiersTest extends OrderBookTest {
         localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
         localEngine.start();
 
-        hold(10);
+        localEngine.waitForOrderBell(bidToRemain.getId());
 
         assertFalse(localEngine.getOrderBooksByOrderId().isEmpty());
         assertFalse(localOrderBook.isEmpty());
@@ -107,7 +107,7 @@ public class OrderQualifiersTest extends OrderBookTest {
         localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
         localEngine.start();
 
-        hold(10);
+        localEngine.waitForOrderBell(bid.getId());
 
         assertFalse(localEngine.getOrderBooksByOrderId().isEmpty());
         assertFalse(localOrderBook.isEmpty());
@@ -129,7 +129,7 @@ public class OrderQualifiersTest extends OrderBookTest {
 
         engine.submit(bid);
 
-        hold(10);
+        engine.waitForOrderBell(bid.getId() + 1);
 
         final Order ask1 = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(false).price(100L).initialQuantity(1)
@@ -141,7 +141,7 @@ public class OrderQualifiersTest extends OrderBookTest {
 
         engine.submit(ask1);
 
-        hold(10);
+        engine.waitForOrderBell(ask1.getId());
 
         MatchEvent expectedSliceMatch = new MatchEvent(ask1.getId(), bid.getId() + 1, 100L, 1, false, 0L);
         MatchEvent actualSliceMatch = fifoOrderBook.getLastOrderUpdate(bid.getId() + 1).getMatches().get(0);
@@ -163,11 +163,11 @@ public class OrderQualifiersTest extends OrderBookTest {
 
         engine.submit(ask2);
 
-        hold(10);
+        engine.waitForOrderBell(ask2.getId());
 
         expectedSliceMatch = new MatchEvent(ask2.getId(), bid.getId() + 4, 100L, 1, false, 0L);
         actualSliceMatch = fifoOrderBook.getLastOrderUpdate(bid.getId() + 4).getMatches().get(0);
-        assertSame(OrderStatus.CompleteFill, fifoOrderBook.getLastOrderUpdate(bid.getId() + 1).getStatus());
+        assertSame(OrderStatus.CompleteFill, fifoOrderBook.getLastOrderUpdate(bid.getId() + 4).getStatus());
 
         expectedIcebergMatch = expectedSliceMatch;
         actualIcebergMatch = fifoOrderBook.getLastOrderUpdate(bid.getId()).getMatches().get(0);
@@ -199,12 +199,10 @@ public class OrderQualifiersTest extends OrderBookTest {
 
         asks.forEach(engine::submit);
 
-        hold(10);
-
         engine.submit(bid);
 
         // Wait a little to make sure all slices are matched (happens in another thread)
-        hold(10);
+        engine.waitForOrderBell(bid.getId() + 4);
 
         final List<MatchEvent> matches = asks.stream()
                 .flatMap(a -> fifoOrderBook.getOrderUpdates(a.getId()).stream()

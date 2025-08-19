@@ -18,15 +18,13 @@ public class PriceLevel {
     private int totalQuantity;
 
     private final MatchStepComparator matchStepComparator;
-    private final OrderService orderService;
 
-    public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator, OrderService orderService) {
+    public PriceLevel(long price, MatchingAlgorithm matchingAlgorithm, MatchStepComparator matchStepComparator) {
         this.matchingAlgorithm = matchingAlgorithm;
         this.matchStepComparator = matchStepComparator;
         this.ordersById = new HashMap<Integer, Order>();
         this.price = price;
         this.ordersByMatchStep = new ArrayList<>();
-        this.orderService = orderService;
         IntStream.range(0, matchStepComparator.getNumberOfSteps()).forEach(i -> ordersByMatchStep.add(new PriorityQueue<OrderContainer>()));
     }
 

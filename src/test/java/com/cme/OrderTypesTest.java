@@ -27,7 +27,7 @@ public class OrderTypesTest extends OrderBookTest {
                         .security(fifo).buy(false).price(price).initialQuantity(1)
                         .build()).toList();
 
-        asks.forEach(order -> fifoOrderBook.addOrder(order));
+        asks.forEach(fifoOrderBook::addOrder);
 
         final Order marketWithProtection = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(true).initialQuantity(4).orderType(OrderType.MarketWithProtection)
@@ -72,7 +72,7 @@ public class OrderTypesTest extends OrderBookTest {
                         .security(fifo).buy(false).price(price).initialQuantity(1)
                         .build()).toList();
 
-        asks.forEach(order -> fifoOrderBook.addOrder(order));
+        asks.forEach(fifoOrderBook::addOrder);
 
         final Order marketLimitBid = Order.builder().clientOrderId(Integer.toString(0))
                 .security(fifo).buy(true).initialQuantity(4).orderType(OrderType.MarketLimit)
