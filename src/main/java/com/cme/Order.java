@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Getter
@@ -28,6 +29,7 @@ public class Order {
     private final int displayQuantity;
     private final boolean buy;
     private final LocalDate expiration;
+    private final boolean replacement;
 
     @Setter
     @Builder.Default
@@ -36,9 +38,9 @@ public class Order {
     private long price;
     @Setter
     private int initialQuantity;
-
     @Setter
     private boolean top;
+
     private int lmmAllocationPercentage;
     private int filledQuantity;
     private int currentStepInitialQuantity;
@@ -105,6 +107,10 @@ public class Order {
                 * (double) getRemainingQuantity()) / 100);
     }
 
+    public void markForLeveling() {
+        this.markedForLeveling = true;
+    }
+
     public Order getNewSlice() {
         if(isSlice() || isFilled()) {
             return null;
@@ -112,10 +118,6 @@ public class Order {
         return builder().originId(id).timeInForce(timeInForce).clientOrderId(clientOrderId)
                 .security(security).triggerPrice(triggerPrice).initialQuantity(displayQuantity)
                 .minQuantity(minQuantity).buy(buy).orderType(orderType).price(price).slice(true).build();
-    }
-
-    public void markForLeveling() {
-        this.markedForLeveling = true;
     }
 
     public int getRemainingQuantity() {

@@ -1,12 +1,8 @@
 package com.cme;
 
-import com.cme.matchcomparators.OrderModify;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
-import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -35,6 +31,88 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
     public OrderFunctionalitiesTest() {
         engine.addOrderBook(fifoOrderBook);
         engine.start();
+    }
+
+    @Test
+    public void testBasicInFlightMitigationNegative() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(10)
+                .build();
+
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(false).price(100L).initialQuantity(6)
+                .build();
+
+        engine.submit(bid);
+
+        engine.waitForOrderBell(bid.getId());
+
+        // Place the original bid on hold so that we can match against it before the cancel is processed,
+        // allowing us to test if the IFM takes effect
+        engine.placeOnProcessHold(bid.getId());
+
+        final OrderModify orderModify = OrderModify.builder().orderId(bid.getId())
+                .quantity(5).inFlightMitigation(true).build();
+        engine.modify(orderModify);
+
+        engine.submit(ask);
+
+        engine.waitForOrderBell(ask.getId());
+
+        engine.removeProcessHold(bid.getId());
+
+        // Wait for replacement order to be processed (shouldn't be submitted due to IFM)
+        engine.waitForOrderBell(bid.getId() + 2);
+
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+        assert(orderBook.isEmpty());
+    }
+
+    @Test
+    public void testBasicInFlightMitigationPositive() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(5)
+                .build();
+
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(false).price(100L).initialQuantity(4)
+                .build();
+
+        engine.submit(bid);
+
+        engine.waitForOrderBell(bid.getId());
+
+        // Place the original bid on hold so that we can match against it before the cancel is processed,
+        // allowing us to test if the IFM takes effect
+        engine.placeOnProcessHold(bid.getId());
+
+        final OrderModify orderModify = OrderModify.builder().orderId(bid.getId())
+                .quantity(10).inFlightMitigation(true).build();
+        engine.modify(orderModify);
+
+        engine.submit(ask);
+
+        engine.waitForOrderBell(ask.getId());
+
+        engine.removeProcessHold(bid.getId());
+
+        // Wait for replacement order to be processed
+        engine.waitForOrderBell(bid.getId() + 2);
+
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+
+        final Optional<Order> replacement = fifoOrderBook.getOrders().values().stream()
+                .filter(order -> order.getOriginId() == bid.getId()).findAny();
+
+        replacement.ifPresentOrElse(o -> {
+            assertEquals(o.getInitialQuantity(), orderModify.getQuantity() - ask.getInitialQuantity());
+        }, () -> {
+            fail("Replacement order not present in order book.");
+        });
     }
 
     @Test
@@ -94,11 +172,11 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         final Optional<Order> replacement = fifoOrderBook.getOrders().values().stream()
                 .filter(order -> order.getOriginId() == bid.getId()).findAny();
 
-        assertTrue(replacement.isPresent());
-
-        replacement.ifPresent(o -> {
+        replacement.ifPresentOrElse(o -> {
             assertEquals(o.getPrice(), orderModify.getPrice());
             assertEquals(o.getInitialQuantity(), orderModify.getQuantity());
+        }, () -> {
+            fail("Replacement order not present in order book.");
         });
     }
 

@@ -1,9 +1,8 @@
-package com.cme.matchcomparators;
+package com.cme;
 
-import com.cme.OrderType;
-import com.cme.TimeInForce;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDate;
 
@@ -21,4 +20,7 @@ public class OrderModify {
     private Integer displayQuantity;
     private LocalDate expiration;
     private Boolean inFlightMitigation;
+
+    @Setter
+    private Integer restingQuantity;
 }

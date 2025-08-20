@@ -264,6 +264,12 @@ public class OrderBook {
         }
     }
 
+    public boolean hasOrder(int orderId) {
+        return orders.containsKey(orderId)
+                || icebergOrders.containsKey(orderId)
+                || stopOrders.stream().anyMatch(o -> o.getId() == orderId);
+    }
+
     private boolean minQuantityMet(Order order, ConcurrentSkipListMap<Long, PriceLevel> matchAgainst) {
         return order.getMinQuantity() == 0 || order.getTimeInForce() != TimeInForce.FAK
                 || matchAgainst.entrySet().stream().filter(e -> order.isBuy() ?

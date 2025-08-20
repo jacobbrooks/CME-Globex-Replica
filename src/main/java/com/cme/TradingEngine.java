@@ -1,6 +1,5 @@
 package com.cme;
 
-import com.cme.matchcomparators.OrderModify;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,13 +10,15 @@ import java.util.concurrent.*;
 
 public class TradingEngine implements OrderService {
 
-    private final PriorityBlockingQueue<Order> ordersToAdd = new PriorityBlockingQueue<>(1, Comparator.comparing(Order::getTimestamp));
+    private final ConcurrentLinkedQueue<Order> ordersToAdd = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<OrderCancel> ordersToCancel = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<OrderModify> ordersToModify = new ConcurrentLinkedQueue<>();
 
     @Getter
     private final Map<Integer, OrderBook> orderBooksByOrderId = new ConcurrentHashMap<>();
     private final Map<Integer, OrderBook> orderBooksBySecurityId = new ConcurrentHashMap<>();
     private final Map<Integer, OrderBell> orderBells = new ConcurrentHashMap<>();
+    private final Map<Integer, Boolean> processHolds = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
@@ -37,34 +38,28 @@ public class TradingEngine implements OrderService {
                     processOrderCancel();
                 }
 
+                if(!ordersToModify.isEmpty()) {
+                    processOrderModify();
+                }
+
                 final Order nextOrder = ordersToAdd.poll();
                 if (nextOrder == null) {
                     continue;
                 }
 
+                if(onProcessHold(nextOrder.getId())) {
+                    ordersToAdd.add(nextOrder);
+                    continue;
+                }
+
                 final OrderBook book = orderBooksBySecurityId.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(nextOrder.getSecurity(), this));
 
-                if(nextOrder.isInFlightMitigatedReplacement()) {
-                    final int filledQtyBetweenModifyRequestAndCancel = book.getOrderUpdates(nextOrder.getOriginId()).stream()
-                            .filter(u -> u.getTimestamp() > nextOrder.getTimestamp())
-                            .filter(u -> u.getStatus() == OrderStatus.PartialFill || u.getStatus() == OrderStatus.CompleteFill)
-                            .mapToInt(u -> u.getMatches().stream().mapToInt(MatchEvent::getMatchQuantity).sum())
-                            .sum();
-                    final int mitigatedQty = Math.min(0, nextOrder.getInitialQuantity() - filledQtyBetweenModifyRequestAndCancel);
-                    nextOrder.setInitialQuantity(mitigatedQty);
-                }
-
-                if(nextOrder.getInitialQuantity() > 0) {
-                    book.addOrder(nextOrder);
-                    orderBooksByOrderId.put(nextOrder.getId(), book);
-                }
+                book.addOrder(nextOrder);
+                orderBooksByOrderId.put(nextOrder.getId(), book);
 
                 orderBells.get(nextOrder.getId()).ring();
                 if(nextOrder.isIceberg()) {
-                    final int sliceId = book.getOrders().values().stream()
-                            .filter(o -> o.getOriginId() == nextOrder.getId())
-                            .map(Order::getId).findAny().orElse(0);
-                    orderBells.computeIfAbsent(sliceId, k -> new OrderBell()).ring();
+                    ringIcebergSliceOrderBells(nextOrder, book);
                 }
             }
         };
@@ -75,7 +70,7 @@ public class TradingEngine implements OrderService {
     @Override
     public void submit(Order order) {
         orderBells.computeIfAbsent(order.getId(), k -> new OrderBell());
-        ordersToAdd.put(order);
+        ordersToAdd.add(order);
     }
 
     @Override
@@ -86,8 +81,27 @@ public class TradingEngine implements OrderService {
 
     @Override
     public void modify(OrderModify orderModify) {
+        orderBells.get(orderModify.getOrderId()).silence();
+        orderModify.setRestingQuantity(orderBooksByOrderId.get(orderModify.getOrderId()).getOrders().get(orderModify.getOrderId()).getRemainingQuantity());
+        ordersToModify.add(orderModify);
+    }
+
+    private void processOrderModify() {
+        final OrderModify orderModify = ordersToModify.poll();
         final Order original = orderBooksByOrderId.get(orderModify.getOrderId()).getOrders().get(orderModify.getOrderId());
-        final Order modified = Order.builder().originId(original.getId())
+
+        if(original == null || original.getRemainingQuantity() == 0) {
+            return;
+        }
+
+        if(onProcessHold(original.getId())) {
+            ordersToModify.add(orderModify);
+            return;
+        }
+
+        final Order modified = Order.builder()
+                .originId(original.getId())
+                .replacement(true)
                 .inFlightMitigatedReplacement(Optional.ofNullable(orderModify.getInFlightMitigation()).orElse(false))
                 .clientOrderId(Optional.ofNullable(orderModify.getClientOrderId()).orElse(original.getClientOrderId()))
                 .initialQuantity(Optional.ofNullable(orderModify.getQuantity()).orElse(original.getRemainingQuantity()))
@@ -101,12 +115,40 @@ public class TradingEngine implements OrderService {
                 .security(original.getSecurity())
                 .buy(original.isBuy())
                 .build();
-        cancel(original.getId());
-        submit(modified);
+
+        if(modified.isInFlightMitigatedReplacement()) {
+            final int filledQtyBetweenModifyRequestAndCancel = orderModify.getRestingQuantity() - original.getRemainingQuantity();
+            final int mitigatedQty = Math.max(0, modified.getInitialQuantity() - filledQtyBetweenModifyRequestAndCancel);
+            modified.setInitialQuantity(mitigatedQty);
+        }
+
+        final OrderBook book = orderBooksByOrderId.get(orderModify.getOrderId());
+
+        book.cancelOrder(original.getId(), false);
+        if(modified.getInitialQuantity() > 0) {
+            book.addOrder(modified);
+        }
+
+        orderBells.get(original.getId()).ring();
+        orderBells.computeIfAbsent(modified.getId(), k -> new OrderBell()).ring();
+        if(modified.isIceberg()) {
+            ringIcebergSliceOrderBells(modified, book);
+        }
+    }
+
+    private void ringIcebergSliceOrderBells(Order order, OrderBook book) {
+        final int sliceId = book.getOrders().values().stream()
+                .filter(o -> o.getOriginId() == order.getId())
+                .map(Order::getId).findAny().orElse(0);
+        orderBells.computeIfAbsent(sliceId, k -> new OrderBell()).ring();
     }
 
     private void processOrderCancel() {
         final OrderCancel orderCancel = ordersToCancel.poll();
+        if(onProcessHold(orderCancel.getOrderId())) {
+            ordersToCancel.add(orderCancel);
+            return;
+        }
         if(orderBooksByOrderId.containsKey(orderCancel.getOrderId())) {
             orderBooksByOrderId.get(orderCancel.getOrderId()).cancelOrder(orderCancel.getOrderId(), orderCancel.isExpired());
             orderBooksByOrderId.remove(orderCancel.getOrderId());
@@ -143,6 +185,18 @@ public class TradingEngine implements OrderService {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void placeOnProcessHold(int orderId) {
+        processHolds.put(orderId, true);
+    }
+
+    public void removeProcessHold(int orderId) {
+        processHolds.remove(orderId);
+    }
+
+    public boolean onProcessHold(int orderId) {
+        return Optional.ofNullable(processHolds.get(orderId)).orElse(false);
     }
 
     public void cancel(int orderId) {
