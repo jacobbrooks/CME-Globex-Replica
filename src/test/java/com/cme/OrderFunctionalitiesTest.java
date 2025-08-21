@@ -25,12 +25,48 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
             .build();
 
     private final TradingEngine engine = new TradingEngine();
-    private final OrderBook fifoOrderBook = new OrderBook(fifo, engine);
-    private final OrderBook orderBook = new OrderBook(configurable, new TradingEngine());
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, engine, engine.getOrderUpdateService());
+    private final OrderBook orderBook = new OrderBook(configurable, new TradingEngine(), engine.getOrderUpdateService());
 
     public OrderFunctionalitiesTest() {
         engine.addOrderBook(fifoOrderBook);
         engine.start();
+    }
+
+    @Test
+    public void testOrderModifyRejectAfterAlreadyFilled() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(10)
+                .build();
+
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(false).price(100L).initialQuantity(10)
+                .build();
+
+        engine.submit(bid);
+
+        engine.waitForOrderBell(bid.getId());
+
+        // Place the original bid on hold so that we can fully match it before the modify is processed
+        engine.placeOnProcessHold(bid.getId());
+
+        final OrderModify orderModify = OrderModify.builder().orderId(bid.getId())
+                .quantity(5).build();
+        engine.modify(orderModify);
+
+        engine.submit(ask);
+
+        engine.waitForOrderBell(ask.getId());
+
+        engine.removeProcessHold(bid.getId());
+
+        // Wait for replacement order to be processed (shouldn't be submitted due to IFM)
+        engine.waitForOrderBell(bid.getId());
+
+        assertSame(OrderStatus.Reject, orderBook.getLastOrderUpdate(bid.getId()).getStatus());
+        assertTrue(orderBook.isEmpty());
     }
 
     @Test
@@ -67,7 +103,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         engine.waitForOrderBell(bid.getId() + 2);
 
         assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
-        assert(orderBook.isEmpty());
+        assertTrue(orderBook.isEmpty());
     }
 
     @Test

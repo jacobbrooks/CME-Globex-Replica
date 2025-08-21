@@ -26,16 +26,18 @@ public class MatchingAlgorithmsTest extends OrderBookTest {
     private final Security thresholdProRataWithLMM = Security.builder().id(1)
             .matchingAlgorithm(MatchingAlgorithm.ThresholdProRataWithLMM).topMin(25).topMax(250).proRataMin(1).build();
 
-    private final OrderBook fifoOrderBook = new OrderBook(fifo, null);
-    private final OrderBook lmmOrderBook = new OrderBook(lmm, null);
-    private final OrderBook lmmTopOrderBook = new OrderBook(lmmTop, null);
-    private final OrderBook proRataOrderBook = new OrderBook(proRata, null);
-    private final OrderBook allocationOrderBook = new OrderBook(allocation, null);
-    private final OrderBook configurableOrderBook = new OrderBook(configurable, null);
-    private final OrderBook configurableNoFIFOOrderBook = new OrderBook(configurableNoFIFO, null);
-    private final OrderBook configurableNoProRataOrderBook = new OrderBook(configurableNoProRata, null);
-    private final OrderBook thresholdProRataOrderBook = new OrderBook(thresholdProRata, null);
-    private final OrderBook thresholdProRataWithLMMOrderBook = new OrderBook(thresholdProRataWithLMM, null);
+    private final OrderUpdateService orderUpdateService = new OrderUpdateService();
+
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, null, orderUpdateService);
+    private final OrderBook lmmOrderBook = new OrderBook(lmm, null, orderUpdateService);
+    private final OrderBook lmmTopOrderBook = new OrderBook(lmmTop, null, orderUpdateService);
+    private final OrderBook proRataOrderBook = new OrderBook(proRata, null, orderUpdateService);
+    private final OrderBook allocationOrderBook = new OrderBook(allocation, null, orderUpdateService);
+    private final OrderBook configurableOrderBook = new OrderBook(configurable, null, orderUpdateService);
+    private final OrderBook configurableNoFIFOOrderBook = new OrderBook(configurableNoFIFO, null, orderUpdateService);
+    private final OrderBook configurableNoProRataOrderBook = new OrderBook(configurableNoProRata, null, orderUpdateService);
+    private final OrderBook thresholdProRataOrderBook = new OrderBook(thresholdProRata, null, orderUpdateService);
+    private final OrderBook thresholdProRataWithLMMOrderBook = new OrderBook(thresholdProRataWithLMM, null, orderUpdateService);
 
     @Test
     public void testThresholdProRataWithLMMOrderBook() {

@@ -10,6 +10,9 @@ import java.util.concurrent.*;
 
 public class TradingEngine implements OrderService {
 
+    @Getter
+    private final OrderUpdateService orderUpdateService = new OrderUpdateService();
+
     private final ConcurrentLinkedQueue<Order> ordersToAdd = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<OrderCancel> ordersToCancel = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<OrderModify> ordersToModify = new ConcurrentLinkedQueue<>();
@@ -52,7 +55,7 @@ public class TradingEngine implements OrderService {
                     continue;
                 }
 
-                final OrderBook book = orderBooksBySecurityId.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(nextOrder.getSecurity(), this));
+                final OrderBook book = orderBooksBySecurityId.computeIfAbsent(nextOrder.getSecurity().getId(), k -> new OrderBook(nextOrder.getSecurity(), this, orderUpdateService));
 
                 book.addOrder(nextOrder);
                 orderBooksByOrderId.put(nextOrder.getId(), book);
@@ -91,6 +94,9 @@ public class TradingEngine implements OrderService {
         final Order original = orderBooksByOrderId.get(orderModify.getOrderId()).getOrders().get(orderModify.getOrderId());
 
         if(original == null || original.getRemainingQuantity() == 0) {
+            OrderUpdate reject = new OrderUpdate(OrderStatus.Reject, null);
+            orderUpdateService.pushOrderUpdate(orderModify.getOrderId(), reject);
+            orderBells.get(orderModify.getOrderId()).ring();
             return;
         }
 

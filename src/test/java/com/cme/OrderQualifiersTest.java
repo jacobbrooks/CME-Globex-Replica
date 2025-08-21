@@ -16,7 +16,7 @@ public class OrderQualifiersTest extends OrderBookTest {
             .build();
 
     private final TradingEngine engine = new TradingEngine();
-    private final OrderBook fifoOrderBook = new OrderBook(fifo, engine);
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, engine, engine.getOrderUpdateService());
 
     public OrderQualifiersTest() {
         engine.addOrderBook(fifoOrderBook);
@@ -32,7 +32,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .build();
 
         final TradingEngine localEngine = new TradingEngine();
-        final OrderBook localOrderBook = new OrderBook(fifoExpiringSoon, localEngine);
+        final OrderBook localOrderBook = new OrderBook(fifoExpiringSoon, localEngine, localEngine.getOrderUpdateService());
         localEngine.addOrderBook(localOrderBook);
 
         final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifoExpiringSoon)
@@ -60,7 +60,7 @@ public class OrderQualifiersTest extends OrderBookTest {
     public void testGTDOrderExpiration() {
         // We need local objects for this test with an unstarted engine to have control over time mocking
         final TradingEngine localEngine = new TradingEngine();
-        final OrderBook localOrderBook = new OrderBook(fifo, localEngine);
+        final OrderBook localOrderBook = new OrderBook(fifo, localEngine, localEngine.getOrderUpdateService());
         localEngine.addOrderBook(localOrderBook);
 
         final Order bidToExpire = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
@@ -95,7 +95,7 @@ public class OrderQualifiersTest extends OrderBookTest {
     public void testDayOrderExpiration() {
         // We need local objects for this test with an unstarted engine to have control over time mocking
         final TradingEngine localEngine = new TradingEngine();
-        final OrderBook localOrderBook = new OrderBook(fifo, localEngine);
+        final OrderBook localOrderBook = new OrderBook(fifo, localEngine, localEngine.getOrderUpdateService());
         localEngine.addOrderBook(localOrderBook);
 
         final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)

@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 public class OrderBook {
 
     private final OrderService orderService;
+    private final OrderUpdateService orderUpdateService;
 
     @Getter
     private final Security security;
@@ -23,7 +24,6 @@ public class OrderBook {
     private final Map<Integer, Order> orders = new ConcurrentHashMap<>();
     private final Map<Integer, PriceLevel> priceLevelByOrderId = new ConcurrentHashMap<>();
     private final Map<String, Integer> orderIdByClientOrderId = new ConcurrentHashMap<>();
-    private final Map<Integer, Queue<OrderUpdate>> orderUpdateMap = new ConcurrentHashMap<>();
 
     private final Queue<Order> stopOrders = new PriorityBlockingQueue<>(1, Comparator.comparingLong(Order::getTimestamp));
     private final Map<Integer, Order> icebergOrders = new ConcurrentHashMap<>();
@@ -35,10 +35,11 @@ public class OrderBook {
 
     private long lastTradedPrice;
 
-    public OrderBook(Security security, OrderService orderService) {
+    public OrderBook(Security security, OrderService orderService, OrderUpdateService orderUpdateService) {
         this.security = security;
         this.orderService = orderService;
         this.matchStepComparator = new MatchStepComparator(security.getMatchingAlgorithm());
+        this.orderUpdateService = orderUpdateService;
     }
 
     /*
@@ -295,11 +296,11 @@ public class OrderBook {
     }
 
     private void pushOrderUpdate(int orderId, OrderUpdate update) {
-        orderUpdateMap.computeIfAbsent(orderId, k -> new ConcurrentLinkedQueue<>()).add(update);
+        orderUpdateService.pushOrderUpdate(orderId, update);
     }
 
     public List<OrderUpdate> getOrderUpdates(int orderId) {
-        return orderUpdateMap.get(orderId).stream().toList();
+        return orderUpdateService.getOrderUpdates(orderId);
     }
 
     public OrderUpdate getLastOrderUpdate(int orderId) {
@@ -324,7 +325,7 @@ public class OrderBook {
         priceLevelByOrderId.clear();
         stopOrders.clear();
         icebergOrders.clear();
-        orderUpdateMap.clear();
+        orderUpdateService.clear();
         topBid.set(null);
         topAsk.set(null);
     }

@@ -15,7 +15,7 @@ public class OrderTypesTest extends OrderBookTest {
             .matchingAlgorithm(MatchingAlgorithm.FIFO)
             .protectionPoints(100)
             .build();
-    private final OrderBook fifoOrderBook = new OrderBook(fifo, null);
+    private final OrderBook fifoOrderBook = new OrderBook(fifo, null, new OrderUpdateService());
 
     @Test
     public void testMarkerOrderWithProtection() {
