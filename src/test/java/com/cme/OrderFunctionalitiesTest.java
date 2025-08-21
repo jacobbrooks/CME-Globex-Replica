@@ -237,7 +237,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
 
         engine.submit(bid);
 
-        engine.waitForOrderBell(bid.getId() + 3);
+        engine.waitForOrderBell(bid.getId() + 4);
 
         final List<MatchEvent> matches = asks.stream()
                 .flatMap(a -> fifoOrderBook.getOrderUpdates(a.getId()).stream()
