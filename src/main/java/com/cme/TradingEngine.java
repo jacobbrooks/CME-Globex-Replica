@@ -73,6 +73,9 @@ public class TradingEngine implements OrderService {
     @Override
     public void submit(Order order) {
         orderBells.computeIfAbsent(order.getId(), k -> new OrderBell());
+        if(order.isSlice()) {
+            orderBells.get(order.getOriginId()).silence();
+        }
         ordersToAdd.add(order);
     }
 
@@ -131,21 +134,31 @@ public class TradingEngine implements OrderService {
         final OrderBook book = orderBooksByOrderId.get(orderModify.getOrderId());
 
         book.cancelOrder(original.getId(), false);
+
+        final List<Order> unaddedIcebergSlicesToRing = ordersToAdd.stream()
+                .filter(o -> o.getOriginId() == original.getId()).toList();
+        ordersToAdd.removeIf(o -> o.getId() == original.getId() || o.getOriginId() == original.getId());
+        unaddedIcebergSlicesToRing.forEach(o -> orderBells.get(o.getId()).ring());
+
         if(modified.getInitialQuantity() > 0) {
             book.addOrder(modified);
         }
 
         orderBells.get(original.getId()).ring();
-        orderBells.computeIfAbsent(modified.getId(), k -> new OrderBell()).ring();
-        if(modified.isIceberg()) {
+        if(original.isIceberg()) {
+            ringIcebergSliceOrderBells(original, book);
+        }
+
+        if(modified.getInitialQuantity() > 0) {
+            orderBells.computeIfAbsent(modified.getId(), k -> new OrderBell()).ring();
+        }
+        if(modified.isIceberg() && modified.getInitialQuantity() > 0) {
             ringIcebergSliceOrderBells(modified, book);
         }
     }
 
     private void ringIcebergSliceOrderBells(Order order, OrderBook book) {
-        final int sliceId = book.getOrders().values().stream()
-                .filter(o -> o.getOriginId() == order.getId())
-                .map(Order::getId).findAny().orElse(0);
+        final int sliceId = book.getActiveSliceByIceberg().get(order.getId());
         orderBells.computeIfAbsent(sliceId, k -> new OrderBell()).ring();
     }
 

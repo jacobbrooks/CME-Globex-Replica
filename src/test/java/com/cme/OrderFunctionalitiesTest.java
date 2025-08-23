@@ -2,6 +2,7 @@ package com.cme;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -31,6 +32,68 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
     public OrderFunctionalitiesTest() {
         engine.addOrderBook(fifoOrderBook);
         engine.start();
+    }
+
+    @Test
+    public void testModifyStopOrderTriggerPrice() {
+        fifoOrderBook.clear();
+
+        final Order stopOrder = Order.builder().clientOrderId(Integer.toString(0))
+                .security(fifo).buy(true).price(200L).initialQuantity(10).orderType(OrderType.StopLimit)
+                .triggerPrice(100L).build();
+
+        final Order resting = Order.builder().clientOrderId(Integer.toString(0))
+                .security(fifo).buy(true).price(75L).initialQuantity(1)
+                .build();
+
+        final Order aggressing = Order.builder().clientOrderId(Integer.toString(0))
+                .security(fifo).buy(false).price(75L).initialQuantity(1)
+                .build();
+
+        final Order stopOrderMatch = Order.builder().clientOrderId(Integer.toString(0))
+                .security(fifo).buy(false).price(200L).initialQuantity(10).orderType(OrderType.Limit)
+                .build();
+
+        // Stop order should be accepted and wait in the stop order queue
+        engine.submit(stopOrder);
+
+        engine.waitForOrderBell(stopOrder.getId());
+
+        assertFalse(Optional.ofNullable(fifoOrderBook.getOrderUpdates(stopOrder.getId())).orElse(Collections.emptyList()).isEmpty());
+        assertSame(OrderType.StopLimit, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getAggressingOrderType());
+        assertSame(OrderStatus.New, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getStatus());
+
+        // A limit order at the stop order's trigger price which just rests on the book should not yet trigger the stop order
+        engine.submit(resting);
+        engine.waitForOrderBell(resting.getId());
+        assertFalse(Optional.ofNullable(fifoOrderBook.getOrderUpdates(stopOrder.getId())).orElse(Collections.emptyList()).size() > 1);
+
+        // Trigger price was originally 100, so a trade at 75 would not originally trigger the stop order.
+        // Now we are modifying the trigger price to 75, so we will see if a trade at 75 properly triggers it.
+        final OrderModify orderModify = OrderModify.builder().orderId(stopOrder.getId()).triggerPrice(75L).build();
+        engine.modify(orderModify);
+        engine.waitForOrderBell(stopOrder.getId() + 4);
+
+        // Aggressing limit order should match against the resting limit order, which then should trigger the stop order
+        engine.submit(aggressing);
+
+        engine.waitForOrderBell(aggressing.getId());
+
+        assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId() + 4).getAggressingOrderType());
+        assertFalse(fifoOrderBook.isEmpty());
+
+        engine.submit(stopOrderMatch);
+        engine.waitForOrderBell(stopOrderMatch.getId());
+        // Stop order fill notice should be 3rd update
+        assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId() + 4).getAggressingOrderType());
+        assertSame(OrderStatus.CompleteFill, fifoOrderBook.getLastOrderUpdate(stopOrder.getId() + 4).getStatus());
+
+        final List<MatchEvent> expectedMatches = List.of(new MatchEvent(stopOrderMatch.getId(), stopOrder.getId() + 4, 200L, 10, false, 0L));
+        final List<MatchEvent> matches = fifoOrderBook.getLastOrderUpdate(stopOrderMatch.getId()).getMatches();
+
+        if (!equalMatches(expectedMatches, matches)) {
+            fail(getFailMessage("matches", expectedMatches.stream().map(MatchEvent::toString).toList(), matches.stream().map(MatchEvent::toString).toList()));
+        }
     }
 
     @Test
@@ -70,6 +133,142 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
     }
 
     @Test
+    public void testIcebergOrderInFlightMitigationNegativeInterceptedMatch() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(6).displayQuantity(2)
+                .build();
+
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(false).price(100L).initialQuantity(4).build();
+
+        engine.submit(bid);
+
+        engine.waitForOrderBell(bid.getId() + 2);
+
+        // Put the order modify on hold to simulate the ask matching against the resting slice after
+        // the modify has already been submitted, but before it has actually been processed i.e.
+        // The resting order quantity changed while the modify request was "in flight"
+        engine.placeOnProcessHold(bid.getId());
+
+        final OrderModify orderModify = OrderModify.builder()
+                .orderId(bid.getId()).price(100L).quantity(1).inFlightMitigation(true)
+                .build();
+        engine.modify(orderModify);
+
+        // The ask should match against the initial bid slice for 2, then the remaining ask qty of 2
+        // should go to rest on the book. The match against the bid slice should trigger the release
+        // of another slice, which we are putting on hold to prevent it from entering the book, allowing
+        // us to simulate the order modification executing before processing the 2nd slice
+        engine.placeOnProcessHold(bid.getId() + 3);
+        engine.submit(ask);
+
+        engine.waitForOrderBell(ask.getId());
+
+        // The modification qty is now less than what we already matched for, so removing the
+        // modify hold and allowing  request to finally process will result in a cancel
+        // without replacement, hopefully cancelling the unprocessed released slice before it can
+        // enter the book
+        engine.removeProcessHold(bid.getId());
+
+        // "Allow" the released slice to enter the book but hope it doesn't actually, because the modify
+        // request should have cancelled it while it was in purgatory
+        engine.removeProcessHold(bid.getId() + 3);
+        engine.waitForOrderBell(bid.getId());
+
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+        assertTrue(fifoOrderBook.hasOrder(ask.getId()));
+        assertEquals(2, ask.getRemainingQuantity());
+    }
+
+    @Test
+    public void testIcebergOrderInFlightMitigationPositive() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(8).displayQuantity(2)
+                .build();
+
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(false).price(100L).initialQuantity(4).build();
+
+        engine.submit(bid);
+
+        engine.waitForOrderBell(bid.getId() + 2);
+
+        engine.placeOnProcessHold(bid.getId());
+
+        final OrderModify orderModify = OrderModify.builder()
+                .orderId(bid.getId()).price(100L).quantity(6).inFlightMitigation(true)
+                .build();
+        engine.modify(orderModify);
+
+        // The ask should match against the initial bid slice for 2, then the remaining ask qty of 2
+        // should go to rest on the book. The match against the bid slice should trigger the release
+        // of another slice which will match against the now resting ask for another 2 lots. Finally,
+        // the final slice should be released and rest on the book.
+        engine.submit(ask);
+
+        engine.waitForOrderBell(bid.getId() + 4);
+
+        // The modify quantity is greater than what we already matched for, so removing the
+        // hold and allowing the modify request to finally process will result in a cancel
+        // with a replacement order quantity of 2 (modification qty 6 - filled qty 4)
+        engine.removeProcessHold(bid.getId());
+
+        engine.waitForOrderBell(bid.getId() + 6);
+
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId() + 4).getStatus());
+        assertSame(OrderStatus.New, fifoOrderBook.getLastOrderUpdate(bid.getId() + 6).getStatus());
+        assertEquals(2, fifoOrderBook.getOrders().get(bid.getId() + 6).getRemainingQuantity());
+        assertFalse(fifoOrderBook.isEmpty());
+    }
+
+    @Test
+    public void testIcebergOrderInFlightMitigationNegative() {
+        fifoOrderBook.clear();
+
+        final Order bid = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(true).price(100L).initialQuantity(6).displayQuantity(2)
+                .build();
+
+        final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
+                .buy(false).price(100L).initialQuantity(4).build();
+
+        engine.submit(bid);
+
+        engine.waitForOrderBell(bid.getId() + 2);
+
+        engine.placeOnProcessHold(bid.getId());
+
+        final OrderModify orderModify = OrderModify.builder()
+                .orderId(bid.getId()).price(100L).quantity(2).inFlightMitigation(true)
+                .build();
+        engine.modify(orderModify);
+
+        // The ask should match against the initial bid slice for 2, then the remaining ask qty of 2
+        // should go to rest on the book. The match against the bid slice should trigger the release
+        // of another slice which will match against the now resting ask for another 2 lots. Finally,
+        // the final slice should be released and rest on the book.
+        engine.submit(ask);
+
+        engine.waitForOrderBell(bid.getId() + 4);
+
+        // The modify quantity is now less than what we already matched for, so removing the
+        // iceberg hold and allowing the modify request to finally process will result in a cancel
+        // without replacement
+        engine.removeProcessHold(bid.getId());
+
+        engine.waitForOrderBell(bid.getId() + 4);
+
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
+        assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId() + 4).getStatus());
+        assertTrue(fifoOrderBook.isEmpty());
+    }
+
+    @Test
     public void testBasicInFlightMitigationNegative() {
         fifoOrderBook.clear();
 
@@ -100,7 +299,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         engine.removeProcessHold(bid.getId());
 
         // Wait for replacement order to be processed (shouldn't be submitted due to IFM)
-        engine.waitForOrderBell(bid.getId() + 2);
+        engine.waitForOrderBell(bid.getId());
 
         assertSame(OrderStatus.Cancelled, fifoOrderBook.getLastOrderUpdate(bid.getId()).getStatus());
         assertTrue(orderBook.isEmpty());

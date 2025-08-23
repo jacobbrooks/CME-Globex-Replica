@@ -29,6 +29,9 @@ public class OrderBook {
     private final Map<Integer, Order> icebergOrders = new ConcurrentHashMap<>();
 
     @Getter
+    private final Map<Integer, Integer> activeSliceByIceberg = new ConcurrentHashMap<>();
+
+    @Getter
     private final AtomicReference<Order> topBid = new AtomicReference<>();
     @Getter
     private final AtomicReference<Order> topAsk = new AtomicReference<>();
@@ -82,6 +85,10 @@ public class OrderBook {
             orders.put(derivedOrder.getId(), derivedOrder);
             final OrderUpdate sliceAck = new OrderUpdate(OrderStatus.New, derivedOrder.getOrderType());
             pushOrderUpdate(derivedOrder.getId(), ack);
+        }
+
+        if(derivedOrder.isSlice()) {
+            activeSliceByIceberg.put(derivedOrder.getOriginId(), derivedOrder.getId());
         }
 
         if(!minQuantityMet(derivedOrder, matchAgainst)) {
@@ -236,6 +243,9 @@ public class OrderBook {
 
         final OrderUpdate update = new OrderUpdate(expired ? OrderStatus.Expired : OrderStatus.Cancelled, orders.get(orderId).getOrderType());
         pushOrderUpdate(orders.get(orderId).getId(), update);
+        if(orders.get(orderId).isIceberg()) {
+            pushOrderUpdate(activeSliceByIceberg.get(orderId), update);
+        }
 
         orderIdByClientOrderId.remove(orders.get(orderId).getClientOrderId());
 
@@ -325,6 +335,7 @@ public class OrderBook {
         priceLevelByOrderId.clear();
         stopOrders.clear();
         icebergOrders.clear();
+        activeSliceByIceberg.clear();
         orderUpdateService.clear();
         topBid.set(null);
         topAsk.set(null);
