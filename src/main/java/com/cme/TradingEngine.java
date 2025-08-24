@@ -71,7 +71,7 @@ public class TradingEngine implements OrderService {
 
 
     @Override
-    public void submit(Order order) {
+    public void add(Order order) {
         orderBells.computeIfAbsent(order.getId(), k -> new OrderBell());
         if(order.isSlice()) {
             orderBells.get(order.getOriginId()).silence();

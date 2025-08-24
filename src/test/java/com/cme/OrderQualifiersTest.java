@@ -40,7 +40,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .build();
 
         // See if the security's expiration forces the indefinite GTC order to expire
-        localEngine.submit(bid);
+        localEngine.add(bid);
         localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
         localEngine.start();
 
@@ -73,8 +73,8 @@ public class OrderQualifiersTest extends OrderBookTest {
 
         // Set the end of the trading day to 2 seconds from now and see if the engine's internal scheduler correctly cancels
         // the GTD bid which expires today
-        localEngine.submit(bidToExpire);
-        localEngine.submit(bidToRemain);
+        localEngine.add(bidToExpire);
+        localEngine.add(bidToRemain);
         localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
         localEngine.start();
 
@@ -103,7 +103,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .build();
 
         // Set the end of the trading day to 2 seconds from now and see if the engine's internal scheduler correctly cancels the bid
-        localEngine.submit(bid);
+        localEngine.add(bid);
         localEngine.setNextExpirationTime(ZonedDateTime.now().plusSeconds(2));
         localEngine.start();
 
@@ -127,7 +127,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .buy(true).price(100L).initialQuantity(2).displayQuantity(1)
                 .build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId() + 1);
 
@@ -139,7 +139,7 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .security(fifo).buy(false).price(100L).initialQuantity(1)
                 .build();
 
-        engine.submit(ask1);
+        engine.add(ask1);
 
         engine.waitForOrderBell(ask1.getId());
 
@@ -161,7 +161,7 @@ public class OrderQualifiersTest extends OrderBookTest {
             fail(getFailMessage("matches", List.of(expectedIcebergMatch.toString()), List.of(actualIcebergMatch.toString())));
         }
 
-        engine.submit(ask2);
+        engine.add(ask2);
 
         engine.waitForOrderBell(ask2.getId());
 
@@ -197,9 +197,9 @@ public class OrderQualifiersTest extends OrderBookTest {
                 .buy(true).price(300L).initialQuantity(4).displayQuantity(1)
                 .build();
 
-        asks.forEach(engine::submit);
+        asks.forEach(engine::add);
 
-        engine.submit(bid);
+        engine.add(bid);
 
         // Wait a little to make sure all slices are matched (happens in another thread)
         engine.waitForOrderBell(bid.getId() + 4);

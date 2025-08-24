@@ -229,7 +229,7 @@ public class OrderBook {
         }
 
         if(matchedSlice.isFilled()) {
-            orderService.submit(icebergOrders.get(matchedSlice.getOriginId()).getNewSlice());
+            orderService.add(icebergOrders.get(matchedSlice.getOriginId()).getNewSlice());
         }
     }
 

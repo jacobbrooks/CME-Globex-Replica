@@ -55,7 +55,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .build();
 
         // Stop order should be accepted and wait in the stop order queue
-        engine.submit(stopOrder);
+        engine.add(stopOrder);
 
         engine.waitForOrderBell(stopOrder.getId());
 
@@ -64,7 +64,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         assertSame(OrderStatus.New, fifoOrderBook.getOrderUpdates(stopOrder.getId()).get(0).getStatus());
 
         // A limit order at the stop order's trigger price which just rests on the book should not yet trigger the stop order
-        engine.submit(resting);
+        engine.add(resting);
         engine.waitForOrderBell(resting.getId());
         assertFalse(Optional.ofNullable(fifoOrderBook.getOrderUpdates(stopOrder.getId())).orElse(Collections.emptyList()).size() > 1);
 
@@ -75,14 +75,14 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         engine.waitForOrderBell(stopOrder.getId() + 4);
 
         // Aggressing limit order should match against the resting limit order, which then should trigger the stop order
-        engine.submit(aggressing);
+        engine.add(aggressing);
 
         engine.waitForOrderBell(aggressing.getId());
 
         assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId() + 4).getAggressingOrderType());
         assertFalse(fifoOrderBook.isEmpty());
 
-        engine.submit(stopOrderMatch);
+        engine.add(stopOrderMatch);
         engine.waitForOrderBell(stopOrderMatch.getId());
         // Stop order fill notice should be 3rd update
         assertSame(OrderType.Limit, fifoOrderBook.getLastOrderUpdate(stopOrder.getId() + 4).getAggressingOrderType());
@@ -108,7 +108,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .buy(false).price(100L).initialQuantity(10)
                 .build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId());
 
@@ -119,7 +119,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .quantity(5).build();
         engine.modify(orderModify);
 
-        engine.submit(ask);
+        engine.add(ask);
 
         engine.waitForOrderBell(ask.getId());
 
@@ -143,7 +143,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
                 .buy(false).price(100L).initialQuantity(4).build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId() + 2);
 
@@ -162,7 +162,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         // of another slice, which we are putting on hold to prevent it from entering the book, allowing
         // us to simulate the order modification executing before processing the 2nd slice
         engine.placeOnProcessHold(bid.getId() + 3);
-        engine.submit(ask);
+        engine.add(ask);
 
         engine.waitForOrderBell(ask.getId());
 
@@ -193,7 +193,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
                 .buy(false).price(100L).initialQuantity(4).build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId() + 2);
 
@@ -208,7 +208,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         // should go to rest on the book. The match against the bid slice should trigger the release
         // of another slice which will match against the now resting ask for another 2 lots. Finally,
         // the final slice should be released and rest on the book.
-        engine.submit(ask);
+        engine.add(ask);
 
         engine.waitForOrderBell(bid.getId() + 4);
 
@@ -237,7 +237,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         final Order ask = Order.builder().clientOrderId(Integer.toString(0)).security(fifo)
                 .buy(false).price(100L).initialQuantity(4).build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId() + 2);
 
@@ -252,7 +252,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
         // should go to rest on the book. The match against the bid slice should trigger the release
         // of another slice which will match against the now resting ask for another 2 lots. Finally,
         // the final slice should be released and rest on the book.
-        engine.submit(ask);
+        engine.add(ask);
 
         engine.waitForOrderBell(bid.getId() + 4);
 
@@ -280,7 +280,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .buy(false).price(100L).initialQuantity(6)
                 .build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId());
 
@@ -292,7 +292,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .quantity(5).inFlightMitigation(true).build();
         engine.modify(orderModify);
 
-        engine.submit(ask);
+        engine.add(ask);
 
         engine.waitForOrderBell(ask.getId());
 
@@ -317,7 +317,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .buy(false).price(100L).initialQuantity(4)
                 .build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId());
 
@@ -329,7 +329,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .quantity(10).inFlightMitigation(true).build();
         engine.modify(orderModify);
 
-        engine.submit(ask);
+        engine.add(ask);
 
         engine.waitForOrderBell(ask.getId());
 
@@ -358,7 +358,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .buy(true).price(100L).initialQuantity(10).displayQuantity(2)
                 .build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId() + 1);
 
@@ -391,7 +391,7 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .buy(true).price(100L).initialQuantity(1)
                 .build();
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId());
 
@@ -430,11 +430,11 @@ public class OrderFunctionalitiesTest extends OrderBookTest {
                 .buy(true).price(300L).initialQuantity(4).displayQuantity(1)
                 .build();
 
-        asks.forEach(engine::submit);
+        asks.forEach(engine::add);
 
         engine.waitForOrderBell(asks.get(asks.size() - 1).getId());
 
-        engine.submit(bid);
+        engine.add(bid);
 
         engine.waitForOrderBell(bid.getId() + 4);
 
